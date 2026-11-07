@@ -2,6 +2,7 @@
 
 Τελευταία ενημέρωση: 2026-11-07, τέλος session 3. Διάβασε πρώτα το `AGENTS.md` (κανόνες συνεργασίας) και μετά αυτό.
 Φάκελος εργασίας: `D:\Battlenet Games\World of Warcraft\_forever_\Interface\AddOns\QuestWise` (ΜΟΝΟ αυτός).
+GitHub: https://github.com/ElaNte75/QuestWise (δημόσιο, branch `main`). Απόφαση χρήστη 2026-11-07: ανεβαίνουν ΟΛΑ — και ήχοι, NOTES.md, AGENTS.md, Debug/Probe, `_tools`.
 
 ## Τι είναι
 Add-on για το WoW **Forever** (Interface 16001, `_forever_`), γενικής χρήσης για το interface με έμφαση στα quest. Σήμερα: δική μας λίστα quest (πιστό αντίγραφο του tracker του παιχνιδιού, που κρύβεται) με φίλτρα, ταξινόμηση "πιο κοντινό πρώτο", κουμπί αντικειμένου quest, σημάδι "!" στα quest mobs, ήχοι, και παράθυρο επιλογών 4 καρτελών. Ο χρήστης είναι ο δημιουργός και των FarmWise / StatVerdictForever (χαρακτήρες "Gchris").
