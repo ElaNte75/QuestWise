@@ -22,6 +22,7 @@ UI/QuestItemButton.lua
 UI/QuestBlock.lua
 UI/QuestSection.lua
 Actions/Clicks.lua
+Quests/AutoFocus.lua
 UI/Tracker.lua
 Compat/HideBlizzard.lua
 Quests/CompleteSound.lua

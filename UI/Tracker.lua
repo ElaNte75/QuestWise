@@ -55,6 +55,7 @@ function Tracker.Refresh()
     Tracker.questCount = #visible
     Tracker.visibleTitles = {}
     for _, q in ipairs(visible) do Tracker.visibleTitles[q.title] = true end
+    NA.SafeCall(NA.AutoFocus.Update, visible) -- closest quest gets the focus (Quests/AutoFocus.lua)
 
     -- size: width from the options; height = what the quests need, but never more than the
     -- maximum height (then the list scrolls with the mouse wheel)

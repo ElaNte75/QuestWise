@@ -28,11 +28,12 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
     -- Zone and Distance exclude each other (one or the other, or neither)
     local zone = filterById("zone")
     local dist = filterById("distance")
-    local zoneCheck, distCheck, distRow
+    local zoneCheck, distCheck, distRow, focusCheck
     local function refreshScope()
         if zoneCheck then zoneCheck.Refresh() end
         if distCheck then distCheck.Refresh() end
         if distRow then W.SetActive(distRow, NA.Filters.IsEnabled(dist)) end
+        if focusCheck then W.SetActive(focusCheck, NA.Filters.IsEnabled(dist)) end
     end
 
     st:Add(W.Section(parent, "Filters"), "section")
@@ -51,6 +52,11 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         function() return NA.db.distanceYards or 500 end,
         function(v) NA.db.distanceYards = v; changed() end,
         nil, { majorEvery = 500 })))
+
+    focusCheck = st:Add(add(W.Checkbox(parent, "Focus the nearest quest",
+        "The closest quest in the list gets the focus by itself (yellow circle, shown on the map). Only quests still to be done count; when all are ready to turn in, the closest turn-in. A quest you focus yourself stays focused until it is done or leaves the list.",
+        function() return NA.db.autoFocusNearest ~= false end,
+        function(v) NA.db.autoFocusNearest = v; changed() end)), "row")
 
     return function()
         NA.Filters.Apply({}) -- tidies saved settings (never both on) before showing them

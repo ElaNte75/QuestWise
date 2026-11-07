@@ -10,6 +10,7 @@ local defaults = {
     collapsedAll = false,
     collapsedQuests = false,
     sortByDistance = true,   -- nearest quest first
+    autoFocusNearest = true, -- with "Only quests near me": the closest quest gets the focus
     listLocked = true,       -- quest list can't be dragged (Interface page)
     listWidth = 260,         -- px, 200..500
     listMaxHeight = 1050,    -- px: the list grows with its quests up to this, then scrolls

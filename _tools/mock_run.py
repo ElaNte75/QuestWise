@@ -105,6 +105,9 @@ QuestWiseProbeDB = {}
 GetQuestLogSpecialItemInfo = function(i) if i == 2 then return "|cff0070dd|Hitem:5555::::::::|h[Magic Stone]|h|r", "icon", 1, false end end
 GetItemCount = function() return 3 end
 C_Container = { GetItemCooldown = function() return 0, 0, 1 end }
+_G.mockFocus = 0
+C_SuperTrack = { GetSuperTrackedQuestID = function() return _G.mockFocus end,
+                 SetSuperTrackedQuestID = function(id) _G.mockFocus = id end }
 C_QuestLog.GetQuestsOnMap = function(id) return { {questID = 1, x = 0.58, y = 0.5}, {questID = 2, x = 0.51, y = 0.5}, {questID = 3, x = 0.65, y = 0.5} } end
 GetQuestLogCompletionText =function(i) if i == 3 then return "Find Longwalker Malah near the edge." end return "" end
 GetQuestLogQuestText = function(i) return "desc", "objective text" end
@@ -270,6 +273,14 @@ function(env)
         order2[#order2+1] = q.title .. (q.isComplete and "(done)" or "")
     end
     out[#out+1] = "order 1000y: " .. table.concat(order2, " > ")
+    -- auto focus: closest open quest; a quest focused by hand is kept; a cleared focus stays cleared
+    -- (in the mock only quest 2 is still open; 1 and 3 are ready to turn in)
+    NA.Tracker.Refresh(); local f1 = _G.mockFocus
+    _G.mockFocus = 3; NA.Tracker.Refresh(); local f2 = _G.mockFocus   -- ready quest by hand: released
+    _G.mockFocus = 0; NA.Tracker.Refresh(); local f3 = _G.mockFocus   -- cleared by hand: stays cleared
+    NA.db.autoFocusNearest = false; _G.mockFocus = 3; NA.Tracker.Refresh(); local f4 = _G.mockFocus
+    NA.db.autoFocusNearest = true
+    out[#out+1] = "auto focus (want 2/2/0/3): " .. f1 .. "/" .. f2 .. "/" .. f3 .. "/" .. f4
     out[#out+1] = "errors=" .. tostring(#NA.errors)
     for _, e in ipairs(NA.errors) do out[#out+1] = e end
     -- click paths

@@ -1,6 +1,6 @@
 # QuestWise — σημειώσεις project
 
-Τελευταία ενημέρωση: 2026-11-07, τέλος session 3. Διάβασε πρώτα το `AGENTS.md` (κανόνες συνεργασίας) και μετά αυτό.
+Τελευταία ενημέρωση: 2026-11-07, session 4. Διάβασε πρώτα το `AGENTS.md` (κανόνες συνεργασίας) και μετά αυτό.
 Φάκελος εργασίας: `D:\Battlenet Games\World of Warcraft\_forever_\Interface\AddOns\QuestWise` (ΜΟΝΟ αυτός).
 GitHub: https://github.com/ElaNte75/QuestWise (δημόσιο, branch `main`). Απόφαση χρήστη 2026-11-07: ανεβαίνουν ΟΛΑ — και ήχοι, NOTES.md, AGENTS.md, Debug/Probe, `_tools`.
 
@@ -29,14 +29,14 @@ Add-on για το WoW **Forever** (Interface 16001, `_forever_`), γενική�
 - `Data/QuestSource.lua` (tracked quest: τίτλος, επίπεδο, περιοχή, έτοιμο, στόχοι, αντικείμενο) · `Data/MapInfo.lua` (περιοχή, quest στον χάρτη, αποστάσεις yd) · `Data/ZoneFilter.lua`, `Data/DistanceFilter.lua` (ομάδα "scope": Zone Ή Dist Ή κανένα) · `Data/DistanceSort.lua` (ανοιχτά πάνω/έτοιμα κάτω, πιο κοντινό πρώτο)
 - `UI/Header.lua` (κεφαλίδα + κουμπί σύμπτυξης: highlight μόνο πάνω στο κουμπί, ίδιο εικονίδιο σε ADD) · `UI/ListLayout.lua` (πλάτος, μέγιστο ύψος, scale, μέγεθος γραμμάτων, φόντο, κλείδωμα/μετακίνηση, θέση, προεπισκόπηση μεγέθους) · `UI/OptionsButton.lua` (γρανάζι στην κεφαλίδα) · `UI/QuestItemButton.lua` (secure) · `UI/QuestBlock.lua` · `UI/QuestSection.lua` · `UI/Tracker.lua` (πλαίσιο `QuestWiseTrackerFrame`, ScrollFrame για τα quest, ανανέωση σε events + ticker 5")
 - `Actions/Clicks.lua` (κλικ τίτλου = quest log, shift+κλικ = ξεπαρακολούθηση, κλικ στον κύκλο = focus) · `Compat/HideBlizzard.lua` (κρύβει την `ObjectiveTrackerFrame`)
-- `Quests/CompleteSound.lua` (ήχος όταν quest γίνει έτοιμο, όχι στο login) · `Mobs/QuestMobMarker.lua` (ανίχνευση quest mob, "!", name-only, "near" λογική, ήχος, tapped) · `Compat/Nameplates.lua` (CVar `nameplateShowEnemies` + πλήκτρο V, CVar `nameplateMaxDistance`)
+- `Quests/AutoFocus.lua` (session 4: με "Only quests near me" ανοιχτό, το πιο κοντινό ΑΝΟΙΧΤΟ quest της λίστας παίρνει μόνο του focus· αν όλα είναι έτοιμα, η πιο κοντινή παράδοση· focus με το χέρι κρατιέται μέχρι να γίνει έτοιμο/φύγει από τη λίστα· καθάρισμα focus με το χέρι μένει μέχρι να αλλάξει το πιο κοντινό· περιθώριο 25 yd για να μην πηγαινοέρχεται· καλείται από `Tracker.Refresh`) · `Quests/CompleteSound.lua` (ήχος όταν quest γίνει έτοιμο, όχι στο login) · `Mobs/QuestMobMarker.lua` (ανίχνευση quest mob, "!", name-only, "near" λογική, ήχος, tapped) · `Compat/Nameplates.lua` (CVar `nameplateShowEnemies` + πλήκτρο V, CVar `nameplateMaxDistance`)
 - `UI/Options/`: `Widgets.lua` (χρώματα, πλέγμα, βασικά widgets), `Controls.lua` (Dropdown, Slider), `Scroll.lua` (κυλιόμενη σελίδα), `Window.lua` (`QuestWiseOptionsWindow`, `/questwise`, `/qw`, AddOn compartment, window scale), `SoundPicker.lua`, σελίδες με τη σειρά: `PageInterface.lua`, `PageQuests.lua`, `PageMobs.lua`, `PageComplete.lua`. Νέα σελίδα: `NA.Options.AddPage(key, label, build)`· `build(page)` επιστρέφει refresh· `page.PageToggle(on)` για εμφάνιση/απόκρυψη.
 - ΠΡΟΣΩΡΙΝΑ (αφαιρούνται στο τέλος): `Debug.lua`, `Probe.lua`, `ProbeMap.lua` + τα `Report`/log κομμάτια σε ZoneFilter/DistanceFilter/QuestMobMarker/Nameplates.
 - `_tools/` (δεν φορτώνονται από το παιχνίδι): `process_sounds.py` (φάκελος ήχων → `Sounds/`: χωρίς κόψιμο/αλλαγή, μόνο ένταση· 50 = ίδια loudness, 100 = διπλάσια με απαλό limiter· νέος ήχος = πρόσθεσε στο `NAMES`, ξανατρέξε, πλήρης επανεκκίνηση παιχνιδιού), `syntax_check.py`, `mock_run.py` (βρίσκουν το .toc από το όνομα του φακέλου).
 
 ## Οι καρτέλες των επιλογών σήμερα
 1. **Interface**: Position (Lock the list in place, Back to default) · Size (Width 200–500, Maximum height 150–οθόνη, σημείωση κύλισης· όσο είναι ανοιχτή η καρτέλα φαίνεται χρυσό πλαίσιο προεπισκόπησης) · Scale and text (List scale 60–150%, Text size 9–16, Window scale 70–130% — εφαρμόζεται όταν αφήνεις το slider, απόφαση χρήστη) · Background (Show a background, Opacity).
-2. **Quest list**: Order (Nearest quest first) · Filters (Only quests of this zone / Only quests near me + Distance 100–3000 yd).
+2. **Quest list**: Order (Nearest quest first) · Filters (Only quests of this zone / Only quests near me + Distance 100–3000 yd + Focus the nearest quest (`autoFocusNearest`, on· θαμπώνει όταν το φίλτρο απόστασης είναι off)).
 3. **Quest mobs**: Marking (Mark quest mobs, Show enemy nameplates, Seen up to 10–40 yd) · "! Quest mob found" (Ignore mobs tapped by others, Show its quest in the list + Keep it for 10 s–2 min, Play a sound + Sound + Volume).
 4. **Quest complete**: Play a sound when a quest is completed + Sound + Volume.
 
@@ -49,6 +49,7 @@ Add-on για το WoW **Forever** (Interface 16001, `_forever_`), γενική�
 - Όριο ορατότητας εχθρών: το παιχνίδι ΔΕΝ δίνει πινακίδες πέρα από **40 yd** (το CVar γυρνά στα 40). Δεν γίνεται κάτι για πιο μακριά.
 
 ## ΑΔΟΚΙΜΑΣΤΑ (να ελεγχθούν στο επόμενο session)
+- (session 4) ΑΥΤΟΜΑΤΟ FOCUS στο πιο κοντινό quest (`Quests/AutoFocus.lua`, checkbox "Focus the nearest quest" στην καρτέλα Quest list). Αποφάσεις χρήστη: νέο checkbox (on), το χειροκίνητο focus κρατιέται, μετράνε μόνο τα ανοιχτά. Mock ΟΚ, αδοκίμαστο στο παιχνίδι (π.χ. αν το παιχνίδι αλλάζει μόνο του focus όταν παίρνεις νέο quest, μετράει σαν "χειροκίνητο").
 1. **Μετονομασία σε QuestWise** (έγινε στο τέλος του session 3): το add-on φορτώνει από τον νέο φάκελο, οι ρυθμίσεις μεταφέρθηκαν, οι ήχοι παίζουν (ο φάκελος ήχων βγαίνει από το όνομα του φακέλου), `/questwise` και `/qw` δουλεύουν. Ο παλιός φάκελος `AddOns\New_Addon` είναι απενεργοποιημένος (`New_Addon.toc.old`) — ο χρήστης θα τον σβήσει όταν δει ότι όλα δουλεύουν. Το παλιό `SavedVariables\New_Addon.lua` μένει ως αντίγραφο ασφαλείας.
 2. Κουμπί σύμπτυξης: highlight μόνο όταν το ποντίκι είναι πάνω του, ίδιο εικονίδιο πιο φωτεινό (ο χρήστης έδειξε ότι το κίτρινο "+" γινόταν κόκκινο).
 3. Κύλιση σελίδων Options (scrollbar: σκούρο → χρυσό σε hover), πλέγμα ελέγχων σε όλες τις καρτέλες.
