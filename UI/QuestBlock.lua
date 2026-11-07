@@ -127,6 +127,7 @@ function Block:SetData(q, width)
         if not self.itemSlot then self.itemSlot = NA.QuestItemButton.New(self.frame) end
         self.itemSlot.btn:ClearAllPoints()
         self.itemSlot.btn:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
+        self.itemSlot.questID = q.questID
         self.itemSlot:Set(item)
     elseif self.itemSlot and not inCombat then
         self.itemSlot:Clear()

@@ -276,7 +276,7 @@ function(env)
     -- auto focus: closest open quest; a quest focused by hand is kept; a cleared focus stays cleared
     -- (in the mock only quest 2 is still open; 1 and 3 are ready to turn in)
     NA.Tracker.Refresh(); local f1 = _G.mockFocus
-    _G.mockFocus = 3; NA.Tracker.Refresh(); local f2 = _G.mockFocus   -- ready quest by hand: released
+    _G.mockFocus = 3; NA.Tracker.Refresh(); NA.Tracker.Refresh(); local f2 = _G.mockFocus   -- ready quest by hand: kept
     _G.mockFocus = 0; NA.Tracker.Refresh(); local f3 = _G.mockFocus   -- cleared by hand: stays cleared
     NA.db.autoFocusNearest = false; _G.mockFocus = 3; NA.Tracker.Refresh(); local f4 = _G.mockFocus
     NA.db.autoFocusNearest = true
@@ -289,11 +289,38 @@ function(env)
     NA.db.arrowLocked = false; NA.Arrow.ApplyLook(); local a3 = tostring(NA.Arrow.frame:IsShown())
     NA.db.arrowLocked = true; NA.Arrow.ApplyLook(); _G.mockFocus = 3
     NA.Arrow.driver:GetScript("OnUpdate")(nil, 1)
+    for _, st in ipairs(NA.Arrow.STYLES) do for _, c in ipairs(NA.Arrow.COLORS) do
+        NA.db.arrowStyle, NA.db.arrowColor = st.key, c.key; NA.Arrow.ApplyStyle() end end
+    NA.db.arrowSize = 500; out[#out+1] = "arrow styles ok, size limit=" .. NA.Arrow.Size()
+    NA.db.arrowSize, NA.db.arrowStyle, NA.db.arrowColor = nil, nil, nil; NA.Arrow.ApplyStyle()
+    -- progress = arrived: hidden although far away; comes back only far + after the wait
+    _G.mockFocus = 2; NA.Arrow.Update(); local p1 = tostring(NA.Arrow.frame:IsShown())
+    NA.Arrow.Activity(2, "test"); NA.Arrow.Update(); local p2 = tostring(NA.Arrow.frame:IsShown())
+    NA.db.arrowReturnYards = 30; NA.db.arrowArriveYards = 10; NA.db.arrowWaitSeconds = 0 -- quest 2 is 40 yd away
+    local t0 = GetTime; GetTime = function() return t0() + 1000 end
+    NA.Arrow.Update(); local p3 = tostring(NA.Arrow.frame:IsShown()); GetTime = t0
+    NA.db.arrowReturnYards, NA.db.arrowArriveYards, NA.db.arrowWaitSeconds = nil, nil, nil
+    NA.Arrow.CheckProgress(); NA.Arrow.CheckProgress()
+    out[#out+1] = "arrow progress (want true/false/true): " .. p1 .. "/" .. p2 .. "/" .. p3
+    -- quest gets done while "arrived": the arrow must guide again (to the turn-in)
+    _G.mockFocus = 2; NA.Arrow.CheckProgress(); NA.Arrow.Activity(2, "test"); NA.Arrow.Update()
+    local c1 = tostring(NA.Arrow.frame:IsShown())
+    _G.mocklog[2].complete = true; NA.Arrow.CheckProgress(); NA.Arrow.Update()
+    local c2 = tostring(NA.Arrow.frame:IsShown()); _G.mocklog[2].complete = false
+    out[#out+1] = "arrow after quest done (want false/true): " .. c1 .. "/" .. c2
     out[#out+1] = "arrow (want shown/hidden/unlocked shown): " .. a1 .. " / " .. a2 .. " / " .. a3
     -- beyond the distance limit: still focuses the closest open quest (list may hide it)
     NA.db.distanceYards = 100; _G.mockFocus = 0; NA.Tracker.Refresh(); NA.Tracker.Refresh()
     local f5 = _G.mockFocus; NA.db.distanceYards = 1000
-    out[#out+1] = "auto focus (want 2/2/0/3): " .. f1 .. "/" .. f2 .. "/" .. f3 .. "/" .. f4 .. " | beyond limit (want 2 or 0-cleared): " .. f5
+    -- turn-ins count too: ready quest 1 moved to ~20 yd, open quest 2 at ~40 yd
+    local oldMap = C_QuestLog.GetQuestsOnMap
+    C_QuestLog.GetQuestsOnMap = function() return { {questID = 1, x = 0.505, y = 0.5}, {questID = 2, x = 0.51, y = 0.5}, {questID = 3, x = 0.65, y = 0.5} } end
+    local function fresh() NA.db.autoFocusNearest = false; NA.Tracker.Refresh(); NA.db.autoFocusNearest = true; _G.mockFocus = 0; NA.Tracker.Refresh() end
+    NA.db.autoFocusTurnIns = false; fresh(); local f6 = _G.mockFocus
+    NA.db.autoFocusTurnIns = true; fresh(); local f7 = _G.mockFocus
+    NA.db.autoFocusTurnIns = false; C_QuestLog.GetQuestsOnMap = oldMap; fresh()
+    out[#out+1] = "turn-ins (want 2 then 1): " .. tostring(f6) .. " then " .. tostring(f7)
+    out[#out+1] = "auto focus (want 2/3/0/3): " .. f1 .. "/" .. f2 .. "/" .. f3 .. "/" .. f4 .. " | beyond limit (want 2 or 0-cleared): " .. f5
     out[#out+1] = "errors=" .. tostring(#NA.errors)
     for _, e in ipairs(NA.errors) do out[#out+1] = e end
     -- click paths

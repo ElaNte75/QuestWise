@@ -35,6 +35,7 @@ UI/Options/Scroll.lua
 UI/Options/Window.lua
 UI/Options/PageInterface.lua
 UI/Options/PageQuests.lua
+UI/Options/PageArrow.lua
 UI/Options/SoundPicker.lua
 UI/Options/PageMobs.lua
 UI/Options/PageComplete.lua

@@ -47,6 +47,10 @@ function Item.New(parent)
         end
     end)
     btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- using the quest item tells the arrow you are at the quest (UI/Arrow.lua)
+    btn:HookScript("PostClick", function()
+        if NA.Arrow and self.questID then NA.SafeCall(NA.Arrow.Activity, self.questID, "item used") end
+    end)
     return self
 end
 

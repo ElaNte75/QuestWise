@@ -1,8 +1,10 @@
--- Quests: with "Only quests near me" on, the closest tracked quest of your zone gets the focus
+-- Quests: the closest tracked quest of your zone gets the focus
 -- (yellow circle / map highlight / arrow) by itself - WHATEVER the distance limit, so it also
 -- picks quests the list hides. Quests of other zones have no distance here and never count.
 --   * only quests still to be done count; if all are ready to turn in, the closest turn-in
---   * a quest you focus yourself is kept until it is done or no longer tracked
+--     (option autoFocusTurnIns: open and ready quests count the same - simply the closest)
+--   * a quest you focus yourself (ANY quest, also one ready to turn in) is kept until it is
+--     turned in / no longer tracked; an open one also until it gets done
 --   * if you clear the focus yourself, it stays cleared until another quest becomes the closest
 -- Runs on every list refresh (game events + every 5 seconds).
 local ADDON, NA = ...
@@ -14,6 +16,7 @@ local SWITCH_MARGIN = 25 -- yards: a new quest must be this much closer before t
 
 local lastSet      -- quest ID we focused last (nil = we haven't focused anything yet)
 local manualID     -- quest the player focused by hand (0 = player cleared the focus)
+local manualDone   -- was that quest already ready to turn in when the player chose it?
 local clearedNear  -- closest quest at the moment the player cleared the focus
 
 local function focusedID()
@@ -31,15 +34,15 @@ local function setFocus(id)
 end
 
 local function reset()
-    lastSet, manualID, clearedNear = nil, nil, nil
+    lastSet, manualID, clearedNear, manualDone = nil, nil, nil, nil
 end
 
+-- works with any filter (zone, distance or none) - user decision
+-- the quest this module focused last (the arrow tells your own focus apart from ours)
+function AF.LastSet() return lastSet end
+
 function AF.IsOn()
-    if NA.db.autoFocusNearest == false then return false end
-    for _, f in ipairs(NA.Filters.list) do
-        if f.id == "distance" then return NA.Filters.IsEnabled(f) end
-    end
-    return false
+    return NA.db.autoFocusNearest ~= false
 end
 
 -- distance of a quest from you (nil = unknown); a quest whose mob you see counts as 0
@@ -50,6 +53,7 @@ end
 
 -- closest tracked quest of this zone: open quests first, ready ones only if no open quest is known
 local function nearest(visible, ctx)
+    local mixed = NA.db.autoFocusTurnIns == true
     local best, bestD, bestDone, bestDoneD
     for _, q in ipairs(visible) do
         local d = distanceOf(q, ctx)
@@ -61,6 +65,7 @@ local function nearest(visible, ctx)
             end
         end
     end
+    if mixed and bestDone and (not bestD or bestDoneD < bestD) then return bestDone, bestDoneD end
     if best then return best, bestD end
     return bestDone, bestDoneD
 end
@@ -76,6 +81,7 @@ function AF.Update(visible) -- visible = ALL tracked quests (not only those the 
         manualID = cur
         lastSet = cur
         clearedNear = nil
+        manualDone = nil
     end
 
     local near, nearD = nearest(visible, ctx)
@@ -90,7 +96,11 @@ function AF.Update(visible) -- visible = ALL tracked quests (not only those the 
             if nearID == clearedNear then return end
         else
             local q = byID[manualID]
-            if q and not q.isComplete then return end -- keep the player's quest
+            if q then
+                if manualDone == nil then manualDone = q.isComplete and true or false end
+                -- keep the player's quest; an open one only until it gets done
+                if manualDone or not q.isComplete then return end
+            end
         end
         manualID, clearedNear = nil, nil
     end
@@ -100,7 +110,7 @@ function AF.Update(visible) -- visible = ALL tracked quests (not only those the 
 
     -- small hysteresis so two quests at about the same distance don't swap back and forth
     local curQ = byID[cur]
-    if curQ and lastSet == cur and (curQ.isComplete == near.isComplete) then
+    if curQ and lastSet == cur and (NA.db.autoFocusTurnIns == true or curQ.isComplete == near.isComplete) then
         local curD = distanceOf(curQ, ctx)
         if curD and curD - nearD < SWITCH_MARGIN then return end
     end

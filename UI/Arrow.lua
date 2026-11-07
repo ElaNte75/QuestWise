@@ -2,20 +2,53 @@
 -- itself), with the distance and the quest name under it.
 --   * it points at the quest's spot on the map (the centre of its area - the game gives one point)
 --   * hidden when: option off, no focused quest, no position (e.g. dungeons), quest not on this
---     map, or you are within ARRIVE yards (it comes back when you walk away again)
+--     map, or you "arrived": got within arrowArriveYards OR the quest moved on (counted kill,
+--     looted item, quest item used). It comes back only when you are farther than
+--     arrowReturnYards AND nothing happened for that quest for arrowWaitSeconds.
 --   * unlock it in Options -> Quest list to drag it; while unlocked it always shows, with an outline
--- Settings: arrowEnabled, arrowLocked, arrowPos {x, y} (centre, screen units from bottom-left).
+-- Settings: arrowEnabled, arrowLocked, arrowPos {x, y} (centre, screen units from bottom-left),
+--   arrowStyle (STYLES key), arrowSize (px), arrowColor (COLORS key).
+-- Our arrow pictures are white (Textures/Arrow_*.tga, made by _tools/make_arrows.py) and get
+-- tinted with the chosen colour; new picture files need a full game restart.
 local ADDON, NA = ...
 
 local A = {}
 NA.Arrow = A
 
-local SIZE = 42
-local ARRIVE, LEAVE = 30, 40 -- yards: hide under ARRIVE, show again past LEAVE
+local DEFAULT_SIZE, MIN_SIZE, MAX_SIZE = 42, 24, 96
+local TEX = "Interface\\AddOns\\" .. ADDON .. "\\Textures\\Arrow_"
+
+A.STYLES = {
+    { key = "Game",    label = "Game arrow", path = "Interface\\Minimap\\MinimapArrow", game = true },
+    { key = "Classic", label = "Classic", path = TEX .. "Classic" },
+    { key = "Chevron", label = "Chevron", path = TEX .. "Chevron" },
+    { key = "Block",   label = "Block",   path = TEX .. "Block" },
+    { key = "Double",  label = "Double",  path = TEX .. "Double" },
+    { key = "Slim",    label = "Slim",    path = TEX .. "Slim" },
+    { key = "Needle",  label = "Needle",  path = TEX .. "Needle" },
+}
+-- "Default": our arrows gold, the game arrow with its own colours
+A.COLORS = {
+    { key = "Default", label = "Default" },
+    { key = "Gold",    label = "Gold",   rgb = { 1, 0.82, 0.30 } },
+    { key = "Yellow",  label = "Yellow", rgb = { 1, 1, 0.25 } },
+    { key = "Orange",  label = "Orange", rgb = { 1, 0.55, 0.10 } },
+    { key = "Red",     label = "Red",    rgb = { 1, 0.25, 0.20 } },
+    { key = "Green",   label = "Green",  rgb = { 0.30, 1, 0.30 } },
+    { key = "Blue",    label = "Blue",   rgb = { 0.35, 0.65, 1 } },
+    { key = "Purple",  label = "Purple", rgb = { 0.75, 0.45, 1 } },
+    { key = "White",   label = "White",  rgb = { 1, 1, 1 } },
+}
+local DEFAULT_ARRIVE = 30    -- yards: hide when this close to the quest's spot (option arrowArriveYards)
+local DEFAULT_RETURN = 150   -- yards: ...and show again only past this (option arrowReturnYards)
 local TICK = 0.05             -- seconds between updates
 local GOLD = { 1, 0.82, 0.30 }
 
-local arrived = false
+local DEFAULT_WAIT = 60      -- seconds without progress before it may come back (option arrowWaitSeconds)
+
+local state = {}    -- [questID] = { arrived = bool, active = time of the last progress / visit }
+local progress = {} -- [questID] = sum of done objective counts, to notice progress
+local doneBefore = {} -- [questID] = was it ready to turn in at the last check?
 
 local function focusedID()
     if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
@@ -41,6 +74,84 @@ local function facing()
 end
 
 function A.IsOn() return NA.db.arrowEnabled ~= false end
+local function find(list, key)
+    for _, it in ipairs(list) do if it.key == key then return it end end
+    return list[1]
+end
+function A.Size() return math.min(math.max(NA.db.arrowSize or DEFAULT_SIZE, MIN_SIZE), MAX_SIZE) end
+
+-- picture, size and colour from the settings
+function A.ApplyStyle()
+    local f, arrow = A.frame, A.arrow
+    if not f then return end
+    local style = find(A.STYLES, NA.db.arrowStyle or "Game")
+    local color = find(A.COLORS, NA.db.arrowColor or "Default")
+    arrow:SetTexture(style.path)
+    local rgb = color.rgb or (not style.game and GOLD) or { 1, 1, 1 }
+    arrow:SetVertexColor(rgb[1], rgb[2], rgb[3])
+    local size = A.Size()
+    arrow:SetSize(size, size)
+    f:SetSize(math.max(size, 80) + 40, size + 34)
+end
+
+function A.ArriveYards() return NA.db.arrowArriveYards or DEFAULT_ARRIVE end
+function A.ReturnYards() return NA.db.arrowReturnYards or DEFAULT_RETURN end
+function A.WaitSeconds() return NA.db.arrowWaitSeconds or DEFAULT_WAIT end
+
+-- Something was done for this quest (objective went up, quest item used): you are there.
+function A.Activity(questID, why)
+    if not questID then return end
+    local s = state[questID]
+    if not (s and s.arrived) then A.Log("arrived (" .. why .. ")", questID, nil) end
+    state[questID] = { arrived = true, active = GetTime() }
+end
+
+local function progressOf(questID)
+    local ok, objs = pcall(C_QuestLog.GetQuestObjectives, questID)
+    if not ok or type(objs) ~= "table" then return nil end
+    local n = 0
+    for _, o in ipairs(objs) do
+        n = n + (tonumber(o.numFulfilled) or 0) + (o.finished and 1 or 0)
+    end
+    return n
+end
+
+local function isComplete(questID)
+    local ok, v = pcall(C_QuestLog.IsComplete, questID)
+    return ok and v and true or false
+end
+
+-- quest log changed: did the focused quest move on?
+-- Done (ready to turn in) = a NEW place to go (where you hand it in): guide again from scratch.
+local function checkProgress()
+    local id = focusedID()
+    if not id then return end
+    local n = progressOf(id)
+    if not n then return end
+    local before = progress[id]
+    local done = isComplete(id)
+    local wasDone = doneBefore[id]
+    progress[id], doneBefore[id] = n, done
+    if done and wasDone == false then
+        state[id] = nil
+        A.Log("completed -> guide to turn-in", id, nil)
+    elseif not done and before and n > before then
+        A.Activity(id, "progress")
+    end
+end
+A.CheckProgress = checkProgress
+
+-- focus changed: one YOU chose (not the automatic one) always starts guiding from scratch
+local function onFocusChanged()
+    local id = focusedID()
+    if not id then return end
+    local AF = NA.AutoFocus
+    if not (AF and AF.LastSet and AF.LastSet() == id) then
+        if state[id] then A.Log("focused by hand -> guide again", id, nil) end
+        state[id] = nil
+    end
+    checkProgress()
+end
 function A.IsLocked() return NA.db.arrowLocked ~= false end
 
 function A.ApplyPosition()
@@ -80,6 +191,16 @@ local function hide()
     A.title:SetText("drag to move")
 end
 
+-- TEMPORARY debug: silent log of what the arrow decides (QuestWiseProbeDB.arrowLog, last 80)
+function A.Log(what, id, d)
+    local db = QuestWiseProbeDB
+    if not db then return end
+    db.arrowLog = db.arrowLog or {}
+    table.insert(db.arrowLog, string.format("%s %s | quest=%s %s | d=%s | hide<%d return>%d wait=%ds",
+        date("%H:%M:%S"), what, tostring(id), id and questTitle(id) or "", d and string.format("%.0f", d) or "nil", A.ArriveYards(), A.ReturnYards(), A.WaitSeconds()))
+    while #db.arrowLog > 80 do table.remove(db.arrowLog, 1) end
+end
+
 function A.Update()
     local f = A.frame
     if not f then return end
@@ -93,12 +214,26 @@ function A.Update()
     local face = facing()
     if not (v and d and face) then return hide() end
 
-    if arrived then
-        if d > LEAVE then arrived = false end
-    elseif d < ARRIVE then
-        arrived = true
+    -- TEMPORARY debug: focus changes
+    if A.dbgLast ~= id then A.Log("focus", id, d); A.dbgLast = id end
+
+    -- "arrived" = you got close to its spot OR the quest moved on (A.Activity); remembered per quest.
+    -- It comes back only when you are far away AND nothing happened for that quest for a while.
+    local s = state[id]
+    local now = GetTime()
+    if d < A.ArriveYards() then
+        if not (s and s.arrived) then A.Log("arrived (close)", id, d) end
+        s = { arrived = true, active = now }
+        state[id] = s
     end
-    if arrived then return hide() end
+    if s and s.arrived then
+        if d > math.max(A.ReturnYards(), A.ArriveYards() + 10) and now - s.active > A.WaitSeconds() then
+            s.arrived = false
+            A.Log("returned", id, d)
+        else
+            return hide()
+        end
+    end
 
     -- bearing to the quest, counter-clockwise from north (map x = east, map y = south),
     -- minus where you face = how much to turn the arrow (it points up = straight ahead)
@@ -112,17 +247,14 @@ end
 
 NA.OnInit(function()
     local f = CreateFrame("Frame", "QuestWiseArrowFrame", UIParent)
-    f:SetSize(SIZE + 80, SIZE + 34)
     f:SetFrameStrata("MEDIUM")
     f:SetMovable(true)
     f:SetClampedToScreen(true)
     A.frame = f
 
     local arrow = f:CreateTexture(nil, "ARTWORK")
-    arrow:SetSize(SIZE, SIZE)
     arrow:SetPoint("TOP", f, "TOP", 0, 0)
-    arrow:SetTexture("Interface\\Minimap\\MinimapArrow")
-    A.arrow = arrow
+    A.arrow = arrow -- picture, size and colour: A.ApplyStyle()
 
     local dist = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     dist:SetPoint("TOP", arrow, "BOTTOM", 0, -1)
@@ -178,6 +310,18 @@ NA.OnInit(function()
     end)
     A.driver = driver
 
+    -- quest progress (a counted kill, an item looted...) = you are at the quest
+    local ev = CreateFrame("Frame")
+    for _, name in ipairs({ "QUEST_LOG_UPDATE", "UNIT_QUEST_LOG_CHANGED", "SUPER_TRACKING_CHANGED" }) do
+        pcall(ev.RegisterEvent, ev, name)
+    end
+    ev:SetScript("OnEvent", function(_, event)
+        if event == "SUPER_TRACKING_CHANGED" then NA.SafeCall(onFocusChanged)
+        else NA.SafeCall(checkProgress) end
+    end)
+    A.events = ev
+
+    A.ApplyStyle()
     A.ApplyPosition()
     A.ApplyLook()
 end)
