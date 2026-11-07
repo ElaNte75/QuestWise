@@ -1,7 +1,8 @@
--- Quests: with "Only quests near me" on, the closest quest in the list gets the focus
--- (yellow circle / map highlight) by itself.
+-- Quests: with "Only quests near me" on, the closest tracked quest of your zone gets the focus
+-- (yellow circle / map highlight / arrow) by itself - WHATEVER the distance limit, so it also
+-- picks quests the list hides. Quests of other zones have no distance here and never count.
 --   * only quests still to be done count; if all are ready to turn in, the closest turn-in
---   * a quest you focus yourself is kept until it is done or leaves the list
+--   * a quest you focus yourself is kept until it is done or no longer tracked
 --   * if you clear the focus yourself, it stays cleared until another quest becomes the closest
 -- Runs on every list refresh (game events + every 5 seconds).
 local ADDON, NA = ...
@@ -47,7 +48,7 @@ local function distanceOf(q, ctx)
     return ctx.dist[q.questID]
 end
 
--- closest quest of the shown list: open quests first, ready ones only if no open quest is known
+-- closest tracked quest of this zone: open quests first, ready ones only if no open quest is known
 local function nearest(visible, ctx)
     local best, bestD, bestDone, bestDoneD
     for _, q in ipairs(visible) do
@@ -64,7 +65,7 @@ local function nearest(visible, ctx)
     return bestDone, bestDoneD
 end
 
-function AF.Update(visible)
+function AF.Update(visible) -- visible = ALL tracked quests (not only those the list shows)
     if not AF.IsOn() then reset(); return end
     local ctx = NA.MapInfo.Get()
     if not ctx.ok or not ctx.distOK then return end

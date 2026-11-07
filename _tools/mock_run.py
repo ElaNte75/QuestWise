@@ -290,7 +290,10 @@ function(env)
     NA.db.arrowLocked = true; NA.Arrow.ApplyLook(); _G.mockFocus = 3
     NA.Arrow.driver:GetScript("OnUpdate")(nil, 1)
     out[#out+1] = "arrow (want shown/hidden/unlocked shown): " .. a1 .. " / " .. a2 .. " / " .. a3
-    out[#out+1] = "auto focus (want 2/2/0/3): " .. f1 .. "/" .. f2 .. "/" .. f3 .. "/" .. f4
+    -- beyond the distance limit: still focuses the closest open quest (list may hide it)
+    NA.db.distanceYards = 100; _G.mockFocus = 0; NA.Tracker.Refresh(); NA.Tracker.Refresh()
+    local f5 = _G.mockFocus; NA.db.distanceYards = 1000
+    out[#out+1] = "auto focus (want 2/2/0/3): " .. f1 .. "/" .. f2 .. "/" .. f3 .. "/" .. f4 .. " | beyond limit (want 2 or 0-cleared): " .. f5
     out[#out+1] = "errors=" .. tostring(#NA.errors)
     for _, e in ipairs(NA.errors) do out[#out+1] = e end
     -- click paths

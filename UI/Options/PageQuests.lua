@@ -54,7 +54,7 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         nil, { majorEvery = 500 })))
 
     focusCheck = st:Add(add(W.Checkbox(parent, "Focus the nearest quest",
-        "The closest quest in the list gets the focus by itself (yellow circle, shown on the map). Only quests still to be done count; when all are ready to turn in, the closest turn-in. A quest you focus yourself stays focused until it is done or leaves the list.",
+        "The closest quest of your zone gets the focus by itself (yellow circle, map, arrow), even if it is farther than the distance above. Only quests still to be done count; when all are ready to turn in, the closest turn-in. A quest you focus yourself stays focused until it is done.",
         function() return NA.db.autoFocusNearest ~= false end,
         function(v) NA.db.autoFocusNearest = v; changed() end)), "row")
 
