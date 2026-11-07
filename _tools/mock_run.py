@@ -280,6 +280,16 @@ function(env)
     _G.mockFocus = 0; NA.Tracker.Refresh(); local f3 = _G.mockFocus   -- cleared by hand: stays cleared
     NA.db.autoFocusNearest = false; _G.mockFocus = 3; NA.Tracker.Refresh(); local f4 = _G.mockFocus
     NA.db.autoFocusNearest = true
+    -- arrow: points to the focused quest; hides when arrived / no focus
+    GetPlayerFacing = function() return 0 end
+    _G.mockFocus = 2; NA.Arrow.Update()
+    local a1 = tostring(NA.Arrow.frame:IsShown()) .. " " .. tostring(NA.Arrow.dist:GetText())
+    _G.mockFocus = 0; NA.Arrow.Update()
+    local a2 = tostring(NA.Arrow.frame:IsShown())
+    NA.db.arrowLocked = false; NA.Arrow.ApplyLook(); local a3 = tostring(NA.Arrow.frame:IsShown())
+    NA.db.arrowLocked = true; NA.Arrow.ApplyLook(); _G.mockFocus = 3
+    NA.Arrow.driver:GetScript("OnUpdate")(nil, 1)
+    out[#out+1] = "arrow (want shown/hidden/unlocked shown): " .. a1 .. " / " .. a2 .. " / " .. a3
     out[#out+1] = "auto focus (want 2/2/0/3): " .. f1 .. "/" .. f2 .. "/" .. f3 .. "/" .. f4
     out[#out+1] = "errors=" .. tostring(#NA.errors)
     for _, e in ipairs(NA.errors) do out[#out+1] = e end

@@ -58,7 +58,28 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         function() return NA.db.autoFocusNearest ~= false end,
         function(v) NA.db.autoFocusNearest = v; changed() end)), "row")
 
+    -- arrow to the focused quest (UI/Arrow.lua)
+    local Arrow = NA.Arrow
+    local lockCheck, arrowReset
+    local function refreshArrow()
+        local on = Arrow.IsOn()
+        if lockCheck then W.SetActive(lockCheck, on) end
+        if arrowReset then W.SetActive(arrowReset, on) end
+    end
+    st:Add(W.Section(parent, "Arrow"), "section")
+    st:Add(add(W.Checkbox(parent, "Show an arrow to the focused quest",
+        "An arrow on screen points toward the focused quest (the one you clicked, or the one focused by itself), with the distance and its name. It points at the middle of the quest's area and hides when you get there. Not shown in dungeons.",
+        function() return Arrow.IsOn() end,
+        function(v) NA.db.arrowEnabled = v; refreshArrow(); Arrow.Update() end)), "row")
+    lockCheck = st:Add(add(W.Checkbox(parent, "Lock the arrow in place",
+        "Untick it, then drag the arrow to move it. A gold outline shows while it can be moved.",
+        function() return Arrow.IsLocked() end,
+        function(v) NA.db.arrowLocked = v; Arrow.ApplyLook() end)), "row")
+    arrowReset = st:Add(W.Row(parent, "Position"), "row")
+    arrowReset:SetControl(W.ControlButton(arrowReset, "Back to default", function() Arrow.ResetPosition() end))
+
     return function()
+        refreshArrow()
         NA.Filters.Apply({}) -- tidies saved settings (never both on) before showing them
         for _, r in ipairs(refreshers) do r() end
         refreshScope()

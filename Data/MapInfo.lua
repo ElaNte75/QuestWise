@@ -26,7 +26,7 @@ end
 
 local function build()
     -- ok: map data available; distOK: distances in yards available
-    local ctx = { ok = false, distOK = false, onMap = {}, dist = {} }
+    local ctx = { ok = false, distOK = false, onMap = {}, dist = {}, vec = {} } -- vec: {dx east, dy south} in yards
     if not (C_Map and C_Map.GetBestMapForUnit and C_QuestLog.GetQuestsOnMap) then return ctx end
     local mapID = C_Map.GetBestMapForUnit("player")
     if not mapID then return ctx end
@@ -57,7 +57,10 @@ local function build()
                 if canMeasure and q.x and q.y then
                     local dx, dy = (q.x - px) * w, (q.y - py) * h
                     local d = math.sqrt(dx * dx + dy * dy)
-                    if not ctx.dist[q.questID] or d < ctx.dist[q.questID] then ctx.dist[q.questID] = d end
+                    if not ctx.dist[q.questID] or d < ctx.dist[q.questID] then
+                        ctx.dist[q.questID] = d
+                        ctx.vec[q.questID] = { dx, dy }
+                    end
                 end
             end
         end
