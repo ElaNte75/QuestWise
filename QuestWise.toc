@@ -1,0 +1,41 @@
+## Interface: 16001
+## Title: QuestWise
+## Notes: Smarter quest list: filters, nearest quest first, quest mob marks, sounds.
+## Version: 0.1.0
+## SavedVariables: QuestWiseDB, QuestWiseProbeDB, NewAddonDB
+## AddonCompartmentFunc: QuestWise_OnCompartmentClick
+## IconTexture: Interface\Icons\INV_Misc_Note_01
+
+Core/Init.lua
+Core/Filters.lua
+Sounds/SoundList.lua
+Core/Sound.lua
+Data/QuestSource.lua
+Data/MapInfo.lua
+Data/ZoneFilter.lua
+Data/DistanceFilter.lua
+Data/DistanceSort.lua
+UI/Header.lua
+UI/ListLayout.lua
+UI/OptionsButton.lua
+UI/QuestItemButton.lua
+UI/QuestBlock.lua
+UI/QuestSection.lua
+Actions/Clicks.lua
+UI/Tracker.lua
+Compat/HideBlizzard.lua
+Quests/CompleteSound.lua
+Mobs/QuestMobMarker.lua
+Compat/Nameplates.lua
+UI/Options/Widgets.lua
+UI/Options/Controls.lua
+UI/Options/Scroll.lua
+UI/Options/Window.lua
+UI/Options/PageInterface.lua
+UI/Options/PageQuests.lua
+UI/Options/SoundPicker.lua
+UI/Options/PageMobs.lua
+UI/Options/PageComplete.lua
+Debug.lua
+Probe.lua
+ProbeMap.lua
