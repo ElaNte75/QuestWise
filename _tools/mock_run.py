@@ -77,8 +77,8 @@ function UnitGUID() return "guid" end
 function hooksecurefunc() end
 function hooksecurefunc() end
 
-local log = {{ id = 1, title = "Dwarven Digging", level = 8, complete = false, objs = { {text="0/5 Broken Tools", finished=false} } },
-             { id = 2, title = "Mazzranache", level = 8, complete = false, objs = { {text="1/1 Prairie Wolf Heart", finished=true}, {text="0/1 Femur", finished=false} } },
+local log = {{ id = 1, title = "Dwarven Digging", level = 8, complete = false, objs = { {text="0/5 Broken Tools", finished=false, type="item", numFulfilled=0, numRequired=5} } },
+             { id = 2, title = "Mazzranache", level = 8, complete = false, objs = { {text="1/1 Prairie Wolf Heart", finished=true, type="item"}, {text="Bristleback Quilboar slain: 3/8", finished=false, type="monster", numFulfilled=3, numRequired=8} } },
              { id = 3, title = "Longwalker Malah", level = 9, complete = true, objs = {} } }
 _G.mocklog = log
 C_QuestLog = {
@@ -215,6 +215,57 @@ function(env)
     local t2 = tostring(NA.QuestMobMarker.IsQuestNear("Tapped Quest"))
     function UnitIsTapDenied() return false end
     out[#out+1] = "tapped: ignoreOn->near=" .. t1 .. " ignoreOff->near=" .. t2
+    -- dead: no scanning, no sound, no "near" quest; alive again: back to normal
+    C_TooltipInfo = { GetUnit = function() return { lines = { { type = 17, leftText = "Ghost Quest" } } } end }
+    NA.db.soundQuestMob = true
+    UnitIsDeadOrGhost = function() return true end
+    local sc0 = soundCalls; NA.QuestMobMarker.UpdateUnit("nameplate1")
+    local d1 = tostring(NA.QuestMobMarker.IsQuestNear("Ghost Quest")) .. "/sound=" .. (soundCalls - sc0)
+    UnitIsDeadOrGhost = function() return false end
+    NA.QuestMobMarker.UpdateUnit("nameplate1")
+    local d2 = tostring(NA.QuestMobMarker.IsQuestNear("Ghost Quest"))
+    UnitIsDeadOrGhost = nil
+    out[#out+1] = "mobs while dead (want false/sound=0 then true): " .. d1 .. " then " .. d2
+    -- quiet: flying -> no near quest / sound; city -> also list folds and opens again when leaving
+    local flying = true; UnitOnTaxi = function() return flying end
+    sc0 = soundCalls; NA.QuestMobMarker.UpdateUnit("nameplate1")
+    local qf = tostring(NA.QuestMobMarker.IsQuestNear("Ghost Quest")) .. "/sound=" .. (soundCalls - sc0)
+    NA.db.quietFlying = false; local qf2 = tostring(NA.QuestMobMarker.IsQuestNear("Ghost Quest")); NA.db.quietFlying = true
+    flying = false
+    local realBest = C_Map.GetBestMapForUnit
+    NA.db.collapsedAll = false
+    C_Map.GetBestMapForUnit = function() return 1454 end; NA.Quiet.Check()
+    local qc1 = tostring(NA.db.collapsedAll) .. "/" .. tostring(NA.Quiet.Mobs())
+    C_Map.GetBestMapForUnit = realBest; NA.Quiet.Check()
+    local qc2 = tostring(NA.db.collapsedAll) .. "/" .. tostring(NA.Quiet.Mobs())
+    C_Map.GetBestMapForUnit = function() return 1454 end; NA.Quiet.Check()
+    NA.Tracker.header:GetScript("OnClick")(NA.Tracker.header)   -- opened by hand in the city
+    NA.Tracker.header:GetScript("OnClick")(NA.Tracker.header)   -- and folded by hand again
+    C_Map.GetBestMapForUnit = realBest; NA.Quiet.Check()
+    local qc3 = tostring(NA.db.collapsedAll)
+    NA.db.collapsedAll = false; UnitOnTaxi = nil; NA.Quiet.Check()
+    out[#out+1] = "quiet flying (want false/sound=0, off->true): " .. qf .. ", " .. qf2
+    out[#out+1] = "quiet city (want true/true, false/false, by hand stays true): " .. qc1 .. ", " .. qc2 .. ", " .. qc3
+    -- mob mark look: colour by the mob's level (player 6), progress from the tooltip or the quest lines
+    local mobLv = 9
+    UnitLevel = function(u) if u == "player" then return 6 end return mobLv end
+    local ML, QCc = NA.MobLook, NA.QuestColor
+    local function mc() local c = ML.ColorFor("nameplate1"); for k, v in pairs(QCc.COLORS) do if v == c then return k end end; return tostring(c) end
+    local m1 = mc(); mobLv = -1; local m2 = mc(); mobLv = 6; local m3 = mc()
+    NA.db.mobColorsCustom = true; mobLv = 8; local m4 = mc(); NA.db.mobColorsCustom = false
+    NA.db.mobColors = false; local m5 = mc(); NA.db.mobColors = true
+    UnitLevel = function(u) if u == "player" then return 13 end return mobLv end
+    mobLv = 10; local m6 = mc(); mobLv = 11; local m7 = mc(); mobLv = 7; local m8 = mc()
+    UnitLevel = function(u) if u == "player" then return 6 end return mobLv end
+    out[#out+1] = "mob colours me 13 (want 10=green, 11=yellow, 7=grey): " .. m6 .. "," .. m7 .. "," .. m8
+    C_TooltipInfo = { GetUnit = function() return { lines = { { type = 17, leftText = "Tanner Quest" }, { type = 8, leftText = "Palemane Tanner slain: 2/7" } } } end }
+    local e1 = #NA.errors; NA.QuestMobMarker.UpdateUnit("nameplate1")
+    local p1 = ML.ProgressFor("nameplate1", { { title = "Tanner Quest", progress = "2/7" } }, { "Tanner Quest" })
+    local p2 = ML.ProgressFor("nameplate1", {}, { "Mazzranache" })
+    NA.db.mobProgress = false; local p3 = tostring(ML.ProgressFor("nameplate1", { { title = "Tanner Quest", progress = "2/7" } }, { "Tanner Quest" })); NA.db.mobProgress = true
+    C_TooltipInfo = nil; UnitLevel = nil
+    out[#out+1] = "mob colours (want orange,red,yellow,orange,nil): " .. m1 .. "," .. m2 .. "," .. m3 .. "," .. m4 .. "," .. m5 .. " errors=" .. (#NA.errors - e1)
+    out[#out+1] = "mob progress (want 2/7, nil, nil): " .. tostring(p1) .. ", " .. tostring(p2) .. ", " .. p3
     C_TooltipInfo = nil
     local Z, D = NA.Filters.list[1], NA.Filters.list[2]
     local s1 = tostring(NA.Filters.IsEnabled(Z)) .. "/" .. tostring(NA.Filters.IsEnabled(D))
@@ -247,7 +298,15 @@ function(env)
     NA.db.listWidth = 420; NA.db.listBackground = true; NA.db.listOpacity = 30; NA.db.listLocked = false
     Lay.ApplyLook(); NA.Tracker.Refresh()
     out[#out+1] = "layout: width=" .. NA.Tracker.frame:GetWidth() .. " headerW=" .. NA.Tracker.header:GetWidth() .. " blockW=" .. NA.Tracker.section.blocks[1].frame:GetWidth() .. " locked=" .. tostring(Lay.IsLocked())
-    NA.db.listPos = { right = 900, top = 700 }; Lay.ApplyPosition(); Lay.ResetPosition()
+    -- old save (from the bottom-left) becomes "from the nearest corner"; screen 1920x1080 in this test
+    UIParent.GetWidth = function() return 1920 end; UIParent.GetHeight = function() return 1080 end
+    NA.db.listPos = { right = 1850, top = 680 }; Lay.ApplyPosition()
+    local lp = NA.db.listPos
+    local pos1 = tostring(lp.vert) .. lp.side .. " " .. lp.x .. "," .. lp.y
+    local c2 = Lay.CornerPos(500, 200, 260)
+    out[#out+1] = "position corners (want TOPRIGHT -70,-400 / BOTTOMLEFT 240,200): " .. pos1 .. " / " .. c2.vert .. c2.side .. " " .. c2.x .. "," .. c2.y
+    Lay.events:GetScript("OnEvent")(Lay.events, "DISPLAY_SIZE_CHANGED")
+    Lay.ResetPosition()
     out[#out+1] = "position reset: " .. tostring(NA.db.listPos == nil)
     NA.db.listMaxHeight = 150; NA.db.listWidth = 100  -- out-of-range values are cut to the limits
     out[#out+1] = "limits: width=" .. Lay.Width() .. " maxHeight=" .. Lay.MaxHeight()
@@ -284,6 +343,70 @@ function(env)
     GetPlayerFacing = function() return 0 end
     _G.mockFocus = 2; NA.Arrow.Update()
     local a1 = tostring(NA.Arrow.frame:IsShown()) .. " " .. tostring(NA.Arrow.dist:GetText())
+    -- combat: hidden while fighting; back at once, or after the wait when "Wait after combat" is on
+    local ce = NA.ArrowCombat.events
+    local function sh() NA.Arrow.Update(); return tostring(NA.Arrow.frame:IsShown()) end
+    ce:GetScript("OnEvent")(ce, "PLAYER_REGEN_DISABLED"); local k1 = sh()
+    ce:GetScript("OnEvent")(ce, "PLAYER_REGEN_ENABLED"); local k2 = sh()
+    NA.db.arrowCombatWait = true; NA.db.arrowCombatDelay = 30
+    ce:GetScript("OnEvent")(ce, "PLAYER_REGEN_DISABLED"); ce:GetScript("OnEvent")(ce, "PLAYER_REGEN_ENABLED"); local k3 = sh()
+    local ct = GetTime; GetTime = function() return ct() + 31 end; local k4 = sh(); GetTime = ct
+    NA.db.arrowHideCombat = false; ce:GetScript("OnEvent")(ce, "PLAYER_REGEN_DISABLED"); local k5 = sh()
+    ce:GetScript("OnEvent")(ce, "PLAYER_REGEN_ENABLED")
+    NA.db.arrowHideCombat, NA.db.arrowCombatWait = true, false; GetTime = function() return ct() + 1000 end; sh(); GetTime = ct
+    -- dead: not released = hidden; ghost = points to the corpse (map 4000x3000, corpse 0.5,0.55 = 150 yd south)
+    local dead, ghost = false, false
+    UnitIsDeadOrGhost = function() return dead or ghost end
+    UnitIsGhost = function() return ghost end
+    C_DeathInfo = { GetCorpseMapPosition = function() return { GetXY = function() return 0.5, 0.55 end } end }
+    dead = true; local g1 = sh()
+    dead, ghost = false, true; local g2 = sh() .. " " .. tostring(NA.Arrow.dist:GetText()) .. " " .. tostring(NA.Arrow.title:GetText())
+    ghost = false; local g3 = sh() .. " " .. tostring(NA.Arrow.title:GetText())
+    ghost = true; NA.db.arrowCorpse = false; local g4 = sh(); NA.db.arrowCorpse = true
+    C_DeathInfo.GetCorpseMapPosition = function() return { GetXY = function() return 0.5, 0.515 end } end -- 45 yd
+    local g5 = sh(); NA.db.arrowCorpseYards = 50; local g6 = sh(); NA.db.arrowCorpseYards = nil
+    -- died in a fight with "Wait after combat" on: the corpse arrow shows at once
+    C_DeathInfo.GetCorpseMapPosition = function() return { GetXY = function() return 0.5, 0.55 end } end
+    NA.db.arrowCombatWait = true; ce:GetScript("OnEvent")(ce, "PLAYER_REGEN_DISABLED"); ce:GetScript("OnEvent")(ce, "PLAYER_REGEN_ENABLED")
+    local g7 = sh(); NA.db.arrowCombatWait = false
+    ghost = false; GetTime = function() return ct() + 2000 end; sh(); GetTime = ct
+    out[#out+1] = "corpse right after combat with wait (want true): " .. g7
+    -- quest area: player at 0.5,0.5 on a 4000x3000 map; quest 2's area = x 0.51..0.60 (40 yd east of you)
+    local realCF = CreateFrame
+    local areaFrom = 0.51
+    CreateFrame = function(kind, ...)
+        local f = realCF(kind, ...)
+        if kind == "QuestPOIFrame" then
+            f.DrawBlob = function() end
+            f.UpdateMouseOverTooltip = function(_, x, y) if x >= areaFrom and x <= 0.60 then return 2, 1 end return nil end
+        end
+        return f
+    end
+    NA.QuestArea.Reset(true); _G.mockFocus = 2
+    NA.db.arrowAreaYards = 0; local ar1 = sh()                -- outside, no margin: arrow shows
+    NA.db.arrowAreaYards = 60; NA.QuestArea.Reset(); local ar2 = sh()   -- 40 yd from the area, margin 60: hidden
+    areaFrom = 0.53; NA.QuestArea.Reset(); local ar3 = sh()    -- area now 120 yd away: back at once
+    areaFrom = 0.40; NA.QuestArea.Reset(); local ar4 = sh()    -- inside: hidden
+    NA.db.arrowUseArea = false; areaFrom = 0.53; NA.QuestArea.Reset(); local ar5 = sh(); NA.db.arrowUseArea = nil
+    CreateFrame = realCF; NA.QuestArea.Reset(true); NA.db.arrowAreaYards = nil
+    out[#out+1] = "arrow area (want true/false/true/false, off->false: arrival kept, old rules): " .. ar1 .. "/" .. ar2 .. "/" .. ar3 .. "/" .. ar4 .. ", " .. ar5
+    out[#out+1] = "arrow dead (want false / true 150 yd Your corpse / true Mazzranache): " .. g1 .. " / " .. g2 .. " / " .. g3
+    out[#out+1] = "corpse options (want off=false / 45yd,hide30=true / hide50=false): " .. g4 .. " / " .. g5 .. " / " .. g6
+    out[#out+1] = "arrow combat (want false/true/false/true/true): " .. k1 .. "/" .. k2 .. "/" .. k3 .. "/" .. k4 .. "/" .. k5
+    -- quest colours by difficulty (player level 6 in this test)
+    UnitLevel = function() return 6 end
+    local QC = NA.QuestColor
+    local function cname(c) for k, v in pairs(QC.COLORS) do if v == c then return k end end return c == QC.GOLD and "gold" or "?" end
+    local function col(lv, done) return cname(QC.For({ level = lv, isComplete = done })) end
+    local q1 = col(12) .. "," .. col(9) .. "," .. col(6) .. "," .. col(3) .. "," .. col(1) .. "," .. col(12, true)
+    NA.db.questColorsCustom = true; NA.db.questColorRed = 2; NA.db.questColorGrey = 4
+    local q2 = col(8) .. "," .. col(7) .. "," .. col(4) .. "," .. col(3) .. "," .. col(2)
+    NA.db.questColorsCustom, NA.db.questColorRed, NA.db.questColorGrey = false, 5, 8
+    NA.db.questColors = false; local q3 = col(12); NA.db.questColors = true
+    NA.Tracker.Refresh()
+    out[#out+1] = "quest colours game (want red,orange,yellow,green,grey,gold): " .. q1
+    out[#out+1] = "quest colours custom red+2 grey-4 (want red,yellow,yellow,green,grey): " .. q2
+    out[#out+1] = "quest colours off (want gold): " .. q3
     _G.mockFocus = 0; NA.Arrow.Update()
     local a2 = tostring(NA.Arrow.frame:IsShown())
     NA.db.arrowLocked = false; NA.Arrow.ApplyLook(); local a3 = tostring(NA.Arrow.frame:IsShown())
@@ -314,6 +437,8 @@ function(env)
     local f5 = _G.mockFocus; NA.db.distanceYards = 1000
     -- turn-ins count too: ready quest 1 moved to ~20 yd, open quest 2 at ~40 yd
     local oldMap = C_QuestLog.GetQuestsOnMap
+    -- the map info is cached per GetTime(): make the fake clock always move on (os.clock may not)
+    local tick = 5000; GetTime = function() tick = tick + 0.01; return tick end
     C_QuestLog.GetQuestsOnMap = function() return { {questID = 1, x = 0.505, y = 0.5}, {questID = 2, x = 0.51, y = 0.5}, {questID = 3, x = 0.65, y = 0.5} } end
     local function fresh() NA.db.autoFocusNearest = false; NA.Tracker.Refresh(); NA.db.autoFocusNearest = true; _G.mockFocus = 0; NA.Tracker.Refresh() end
     NA.db.autoFocusTurnIns = false; fresh(); local f6 = _G.mockFocus
@@ -321,6 +446,75 @@ function(env)
     NA.db.autoFocusTurnIns = false; C_QuestLog.GetQuestsOnMap = oldMap; fresh()
     out[#out+1] = "turn-ins (want 2 then 1): " .. tostring(f6) .. " then " .. tostring(f7)
     out[#out+1] = "auto focus (want 2/3/0/3): " .. f1 .. "/" .. f2 .. "/" .. f3 .. "/" .. f4 .. " | beyond limit (want 2 or 0-cleared): " .. f5
+    -- quick buttons on the title: arrow / distance / zone
+    local HT = NA.HeaderToggles
+    local function st() local z, d
+        for _, f in ipairs(NA.Filters.list) do if f.id == "zone" then z = NA.Filters.IsEnabled(f) elseif f.id == "distance" then d = NA.Filters.IsEnabled(f) end end
+        return string.format("arrow=%s dist=%s zone=%s", tostring(NA.Arrow.IsOn()), tostring(d), tostring(z)) end
+    local hb = {}; for _, b in ipairs(HT.buttons) do hb[b.def.key] = b; b:GetScript("OnEnter")(b); b:GetScript("OnLeave")(b) end
+    local h0 = st()
+    hb.arrow:GetScript("OnClick")(hb.arrow); local h1 = st()
+    hb.zone:GetScript("OnClick")(hb.zone); local h2 = st()
+    hb.distance:GetScript("OnClick")(hb.distance); local h3 = st()
+    hb.distance:GetScript("OnClick")(hb.distance); local h4 = st()
+    hb.arrow:GetScript("OnClick")(hb.arrow); local h5 = st()
+    local dg0 = tostring(NA.Filters.IsEnabled(NA.DungeonFilter))
+    hb.dungeon:GetScript("OnClick")(hb.dungeon); local dgb1 = tostring(NA.Filters.IsEnabled(NA.DungeonFilter))
+    hb.dungeon:GetScript("OnClick")(hb.dungeon); local dgb2 = tostring(NA.Filters.IsEnabled(NA.DungeonFilter))
+    out[#out+1] = "dungeon button (want true/false/true): " .. dg0 .. "/" .. dgb1 .. "/" .. dgb2
+    out[#out+1] = "header buttons: " .. #HT.buttons .. " | start " .. h0 .. " | arrow " .. h1 .. " | zone " .. h2 .. " | dist " .. h3 .. " | dist " .. h4 .. " | arrow " .. h5
+    -- info box on mouse-over: print what it says for each quest
+    local cap = {}
+    local tt = GameTooltip
+    local oA, oD = tt.AddLine, tt.AddDoubleLine
+    tt.AddLine = function(_, t) cap[#cap+1] = "    " .. tostring(t) end
+    tt.AddDoubleLine = function(_, l, r) cap[#cap+1] = "    " .. tostring(l) .. "   [" .. tostring(r) .. "]" end
+    for _, b in ipairs(NA.Tracker.section.blocks) do
+        if b.quest then cap[#cap+1] = "  --- box:"; NA.Actions.ShowTooltip(b.titleBtn, b.quest) end
+    end
+    tt.AddLine, tt.AddDoubleLine = oA, oD
+    out[#out+1] = "quest info box:" .. string.char(10) .. table.concat(cap, string.char(10))
+    -- quest object tooltip: "7/8" read from its lines; a mob (unit) or our own buttons don't count
+    local lines = { "Smooth Boulder", "Rocks to Rests", " - Smooth Boulder: 7/8" }
+    local ft = { NumLines = function() return #lines end, GetName = function() return "FakeTip" end,
+                 IsShown = function() return true end, GetUnit = function() return nil end, GetItem = function() return nil end,
+                 GetOwner = function() return UIParent end }
+    for i = 1, 3 do _G["FakeTipTextLeft" .. i] = { GetText = function() return lines[i] end } end
+    GetCursorPosition = function() return 500, 400 end
+    local op1 = tostring(NA.ObjectProgress.ReadProgress(ft))
+    NA.ObjectProgress.Refresh(ft)
+    lines[3] = " - Smooth Boulder: 8/8"; local op2, op2d = NA.ObjectProgress.ReadProgress(ft)
+    ft.GetOwner = function() return NA.Tracker.header end; NA.ObjectProgress.Refresh(ft)
+    -- dungeon filter: quest 2 marked as a dungeon quest by the game
+    C_QuestLog.GetQuestTagInfo = function(id) if id == 2 then return { tagID = 81, tagName = "Dungeon" } end return nil end
+    local function shows2()
+        for _, q in ipairs(NA.Filters.Apply(NA.Tracker.allQuests)) do if q.questID == 2 then return "shown" end end
+        return "hidden"
+    end
+    local dg1 = shows2() .. "/" .. tostring(NA.DungeonFilter.Hides(2))
+    IsInInstance = function() return true, "party" end; local dg2 = shows2(); IsInInstance = nil
+    NA.Filters.SetEnabled(NA.DungeonFilter, false); local dg3 = shows2(); NA.Filters.SetEnabled(NA.DungeonFilter, true)
+    C_QuestLog.GetQuestTagInfo = nil
+    -- focused by hand: first in the list, even when a filter hides it
+    local function firstID() return NA.Tracker.section.blocks[1] and NA.Tracker.section.blocks[1].questID end
+    NA.db.collapsedAll = false
+    _G.mockFocus = 1; NA.Tracker.Refresh(); NA.Tracker.Refresh(); local ff1 = tostring(firstID())
+    C_QuestLog.GetQuestTagInfo = function(id) if id == 1 then return { tagID = 81 } end return nil end
+    NA.Tracker.Refresh(); local ff2 = tostring(firstID()) .. "/" .. tostring(NA.Tracker.questCount)
+    NA.db.focusedFirst = false; NA.Tracker.Refresh(); local ff3 = tostring(firstID()); NA.db.focusedFirst = nil
+    C_QuestLog.GetQuestTagInfo = function(id) if id == 2 then return { tagID = 81, tagName = "Dungeon" } end return nil end
+    out[#out+1] = "focused first (want 1, 1 even as dungeon, off->not 1): " .. ff1 .. ", " .. ff2 .. ", " .. ff3
+    out[#out+1] = "dungeon filter (want hidden/true, inside shown, off shown): " .. dg1 .. ", " .. dg2 .. ", " .. dg3
+    -- a mob's tooltip refilled without its unit (seen in game) must not show the label
+    local realUE = UnitExists; UnitExists = function() return false end
+    ft.GetOwner = function() return UIParent end; lines[1] = "Sunscale Lashtail"; lines[3] = " - Sunscale Lashtail slain: 3/8"
+    ft.GetUnit = function() return "Sunscale Lashtail" end; NA.ObjectProgress.Refresh(ft)
+    ft.GetUnit = function() return nil end; NA.ObjectProgress.Refresh(ft); local op3 = tostring(NA.ObjectProgress.IsLabelShown())
+    lines[1] = "Smooth Boulder"; lines[3] = " - Smooth Boulder: 7/8"
+    GameTooltip:GetScript("OnHide") -- (no real hide in the mock)
+    UnitExists = realUE
+    out[#out+1] = "object label after a mob tooltip (want false): " .. op3
+    out[#out+1] = "object progress (want 7/8, 8/8 done=true): " .. op1 .. ", " .. tostring(op2) .. " done=" .. tostring(op2d)
     out[#out+1] = "errors=" .. tostring(#NA.errors)
     for _, e in ipairs(NA.errors) do out[#out+1] = e end
     -- click paths

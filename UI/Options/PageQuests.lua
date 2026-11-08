@@ -24,6 +24,10 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         "Sorts the quest list so the quest closest to you is on top. Quests ready to turn in always come after the others, the closest turn-in first.",
         function() return NA.db.sortByDistance end,
         function(v) NA.db.sortByDistance = v; changed() end)), "row")
+    st:Add(add(W.Checkbox(parent, "Manual focus on top",
+        "A quest you focus yourself (on the map, in the quest log or here) is always in the list, on top, whatever the filters say. The automatic focus doesn't move quests.",
+        function() return NA.db.focusedFirst ~= false end,
+        function(v) NA.db.focusedFirst = v; changed() end)), "row")
 
     -- Zone and Distance exclude each other (one or the other, or neither)
     local zone = filterById("zone")
@@ -52,14 +56,75 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         function(v) NA.db.distanceYards = v; changed() end,
         nil, { majorEvery = 500 })))
 
+    local dungeon = filterById("dungeon")
+    st:Add(add(W.Checkbox(parent, "Hide dungeon quests",
+        "Quests the game marks as dungeon or raid quests are hidden while you are outside, and get no focus or arrow by themselves. Inside a dungeon they all show. A dungeon quest the game doesn't mark stays in the list.",
+        function() return NA.Filters.IsEnabled(dungeon) end,
+        function(v) NA.Filters.SetEnabled(dungeon, v); changed() end)), "row")
+
     focusCheck = st:Add(add(W.Checkbox(parent, "Focus the nearest quest",
         "The closest quest of your zone gets the focus by itself (yellow circle, map, arrow), whatever filter is on, even if it is farther than the distance above. Only quests still to be done count; when all are ready to turn in, the closest turn-in. A quest you focus yourself stays focused until it is done.",
         function() return NA.db.autoFocusNearest ~= false end,
         function(v) NA.db.autoFocusNearest = v; changed() end)), "row")
 
+    -- quest colours by difficulty (UI/QuestColor.lua)
+    st:Add(W.Section(parent, "Difficulty colours"), "section")
+    local QC = NA.QuestColor
+    local customCheck, colorRows = nil, {}
+    local function refreshColors()
+        local on = QC.IsOn()
+        if customCheck then W.SetActive(customCheck, on) end
+        for _, r in ipairs(colorRows) do W.SetActive(r, on and QC.CustomOn()) end
+    end
+    local function colorsChanged()
+        refreshColors()
+        if NA.Tracker then NA.Tracker.RequestRefresh() end
+    end
+    st:Add(add(W.Checkbox(parent, "Colour quests by difficulty",
+        "Quest titles get the game's colours: red very hard, orange hard, yellow your level, green easy, grey too easy. Quests ready to turn in stay gold.",
+        function() return QC.IsOn() end,
+        function(v) NA.db.questColors = v; colorsChanged() end)), "row")
+    customCheck = st:Add(add(W.Checkbox(parent, "Use my own levels",
+        "Ticked: the colours follow the level limits below instead of the game's.",
+        function() return QC.CustomOn() end,
+        function(v) NA.db.questColorsCustom = v; colorsChanged() end)), "sub")
+    local SLIDERS = {
+        { "red", "Red from", "+" }, { "orange", "Orange from", "+" },
+        { "green", "Green from", "-" }, { "grey", "Grey from", "-" },
+    }
+    for _, s in ipairs(SLIDERS) do
+        local which, label, sign = s[1], s[2], s[3]
+        local l = QC.LIMITS[which]
+        local row = st:Add(W.Row(parent, label), "sub")
+        add(row:SetControl(W.Slider(row, l.min, l.max, 1, "",
+            function() return QC.Limit(which) end,
+            function(v) QC.SetLimit(which, v); if NA.Tracker then NA.Tracker.RequestRefresh() end end,
+            nil, { format = function(v) return sign .. v .. " lv" end })))
+        colorRows[#colorRows + 1] = row
+    end
+    st:Add(W.Note(parent, "Levels above or below yours. Between orange and green the quest is yellow."), "note")
+
+    -- quiet times (Quests/Quiet.lua)
+    local function quietChanged()
+        if NA.Quiet then NA.SafeCall(NA.Quiet.Check) end
+        if NA.QuestMobMarker and NA.QuestMobMarker.RequestRefresh then NA.QuestMobMarker.RequestRefresh() end
+        if NA.Arrow then NA.SafeCall(NA.Arrow.Update) end
+        changed()
+    end
+    st:Add(W.Section(parent, "Stay quiet"), "section")
+    st:Add(add(W.Checkbox(parent, "Quiet while flying",
+        "While you fly with a flight master: no marks on quest mobs, no sounds, no arrow. Back to normal when you land.",
+        function() return NA.db.quietFlying ~= false end,
+        function(v) NA.db.quietFlying = v; quietChanged() end)), "row")
+    st:Add(add(W.Checkbox(parent, "Quiet in major cities",
+        "In Stormwind, Ironforge, Darnassus, Orgrimmar, Thunder Bluff and Undercity: no marks on quest mobs, no sounds, no arrow, and the quest list folds up to its title (you can still open it). When you leave the city the list opens again, unless you folded or opened it yourself.",
+        function() return NA.db.quietCities ~= false end,
+        function(v) NA.db.quietCities = v; quietChanged() end)), "row")
+
     return function()
         NA.Filters.Apply({}) -- tidies saved settings (never both on) before showing them
         for _, r in ipairs(refreshers) do r() end
         refreshScope()
+        refreshColors()
     end
 end)

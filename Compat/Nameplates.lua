@@ -29,9 +29,6 @@ local function ensure()
     -- how far away you see enemies (set once in the options; nil = leave the game's own value)
     local range = tonumber(NA.db.nameplateRange)
     if range and currentRange() ~= range then pcall(set, RANGE_CVAR, range) end
-    -- TEMPORARY debug
-    QuestWiseProbeDB.nameplates = { time = date("%H:%M:%S"), showNameplates = tostring(NA.db.showNameplates),
-        mark = tostring(NA.db.markQuestMobs), cvar = tostring(get(CVAR)) }
 end
 
 -- Did the player change the game's switch (V key / game settings) since we last set it?

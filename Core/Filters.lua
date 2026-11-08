@@ -1,5 +1,5 @@
 -- Core: filter registry. A filter is a table:
---   { id, label, default, Prepare() -> ctx, Test(quest, ctx) -> bool, Report(quests, ctx, passed) }
+--   { id, label, default, group, Prepare() -> ctx, Test(quest, ctx) -> bool }
 -- Filters never untrack anything; they only decide what our list shows.
 local ADDON, NA = ...
 
@@ -54,7 +54,7 @@ function Filters.Apply(quests)
     for _, f in ipairs(Filters.list) do
         if Filters.IsEnabled(f) then
             local ok, ctx = NA.SafeCall(f.Prepare or function() return {} end)
-            active[#active + 1] = { f = f, ctx = ok and ctx or {}, passed = {} }
+            active[#active + 1] = { f = f, ctx = ok and ctx or {} }
             stats[f.id] = 0
         end
     end
@@ -65,14 +65,9 @@ function Filters.Apply(quests)
         for _, a in ipairs(active) do
             local ok, pass = NA.SafeCall(a.f.Test, q, a.ctx)
             if not ok then pass = true end -- a broken filter must never hide quests
-            a.passed[q.questID] = pass and true or false
             if pass then stats[a.f.id] = stats[a.f.id] + 1 else show = false end
         end
         if show then visible[#visible + 1] = q end
-    end
-
-    for _, a in ipairs(active) do
-        if a.f.Report then NA.SafeCall(a.f.Report, quests, a.ctx, a.passed) end
     end
     return visible, stats
 end

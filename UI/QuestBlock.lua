@@ -94,7 +94,7 @@ function Block.New(parent)
         if NA.Actions then NA.Actions.ShowTooltip(titleBtn, self.quest) end
     end
     local function onLeave()
-        title:SetTextColor(1, 0.82, 0)
+        title:SetTextColor(unpack(self.titleColor or { 1, 0.82, 0 }))
         if NA.Actions then NA.Actions.HideTooltip() end
     end
     titleBtn:SetScript("OnClick", onClick)
@@ -142,6 +142,9 @@ function Block:SetData(q, width)
     self.title:SetFont(FONT, fsz, "")
     local label = q.level and string.format("[%d] %s", q.level, q.title) or q.title
     self.title:SetText(label)
+    -- colour by difficulty (UI/QuestColor.lua); ready to turn in / option off = gold
+    self.titleColor = NA.QuestColor and NA.QuestColor.For(q) or { 1, 0.82, 0 }
+    self.title:SetTextColor(unpack(self.titleColor))
     local titleH = math.max(self.title:GetStringHeight(), fsz)
 
     -- Same art the game uses: normal = yellow glyph on dark ring;

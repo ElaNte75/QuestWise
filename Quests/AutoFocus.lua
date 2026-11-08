@@ -6,6 +6,7 @@
 --   * a quest you focus yourself (ANY quest, also one ready to turn in) is kept until it is
 --     turned in / no longer tracked; an open one also until it gets done
 --   * if you clear the focus yourself, it stays cleared until another quest becomes the closest
+--   * distance = the quest's spot on the map only (seen quest mobs don't count)
 -- Runs on every list refresh (game events + every 5 seconds).
 local ADDON, NA = ...
 
@@ -40,14 +41,17 @@ end
 -- works with any filter (zone, distance or none) - user decision
 -- the quest this module focused last (the arrow tells your own focus apart from ours)
 function AF.LastSet() return lastSet end
+-- the quest the player focused and auto focus is leaving alone right now (nil = none)
+function AF.ManualID() if manualID and manualID ~= 0 then return manualID end return nil end
 
 function AF.IsOn()
     return NA.db.autoFocusNearest ~= false
 end
 
--- distance of a quest from you (nil = unknown); a quest whose mob you see counts as 0
+-- distance of a quest from you (nil = unknown): its spot on the map ONLY. A mob of a quest seen
+-- nearby does NOT count (it made the focus jump to another quest whose area overlaps - user report);
+-- the list still shows such a quest (Data/DistanceFilter.lua), only the focus ignores it.
 local function distanceOf(q, ctx)
-    if not q.isComplete and NA.QuestMobMarker and NA.QuestMobMarker.IsQuestNear(q.title) then return 0 end
     return ctx.dist[q.questID]
 end
 
@@ -55,8 +59,10 @@ end
 local function nearest(visible, ctx)
     local mixed = NA.db.autoFocusTurnIns == true
     local best, bestD, bestDone, bestDoneD
+    local DF = NA.DungeonFilter
     for _, q in ipairs(visible) do
         local d = distanceOf(q, ctx)
+        if d and DF and DF.Hides(q.questID) then d = nil end -- dungeon quest while outside (Data/DungeonFilter.lua)
         if d then
             if q.isComplete then
                 if not bestDoneD or d < bestDoneD then bestDone, bestDoneD = q, d end

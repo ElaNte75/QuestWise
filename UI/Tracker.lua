@@ -14,6 +14,7 @@ local QUEST_EVENTS = {
     "SUPER_TRACKING_CHANGED", "PLAYER_ENTERING_WORLD",
     "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS",
     "BAG_UPDATE", "BAG_UPDATE_COOLDOWN", "PLAYER_REGEN_ENABLED",
+    "PLAYER_LEVEL_UP", -- quest colours by difficulty (UI/QuestColor.lua)
 }
 
 local pending = false
@@ -52,10 +53,13 @@ function Tracker.Refresh()
 
     local visible = NA.Filters.Apply(all)
     visible = NA.DistanceSort.Apply(visible)
+    NA.SafeCall(NA.AutoFocus.Update, all) -- closest quest of this zone gets the focus (Quests/AutoFocus.lua)
+    -- a quest you focused yourself: always shown, on top (Quests/FocusFirst.lua)
+    local okFF, ordered = NA.SafeCall(NA.FocusFirst.Apply, visible, all)
+    if okFF and ordered then visible = ordered end
     Tracker.questCount = #visible
     Tracker.visibleTitles = {}
     for _, q in ipairs(visible) do Tracker.visibleTitles[q.title] = true end
-    NA.SafeCall(NA.AutoFocus.Update, all) -- closest quest of this zone gets the focus (Quests/AutoFocus.lua)
 
     -- size: width from the options; height = what the quests need, but never more than the
     -- maximum height (then the list scrolls with the mouse wheel)
@@ -66,6 +70,7 @@ function Tracker.Refresh()
     Tracker.header:SetWidthTo(w)
     Tracker.header:SetFontSize(L.FontSize() + 2)
     Tracker.header:SetCollapsed(NA.db.collapsedAll)
+    L.ApplyLook() -- the quests' background panel hides while the list is folded
     if NA.db.collapsedAll then
         Tracker.scroll:Hide()
         f:SetHeight(HEADER_H)
@@ -107,10 +112,12 @@ NA.OnInit(function()
         expand = "UI-QuestTrackerButton-Expand-All",
         highlight = "UI-QuestTrackerButton-Red-Highlight",
         iconW = 18, iconH = 19, iconX = -1,
+        reserve = 52 + 4 * 20, -- gear + collapse, and the 4 quick buttons (UI/HeaderToggles.lua)
     })
     header:SetPoint("TOPLEFT", 0, 0)
     header:SetScript("OnClick", function()
         NA.db.collapsedAll = not NA.db.collapsedAll
+        if NA.Quiet then NA.Quiet.ListToggledByHand() end
         Tracker.RequestRefresh()
     end)
     Tracker.header = header

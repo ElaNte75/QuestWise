@@ -14,12 +14,27 @@ local defaults = {
     arrowArriveYards = 30,   -- the arrow hides when you are this close to the quest's spot (10..150 yd)
     arrowReturnYards = 150,  -- after you reach a quest, the arrow comes back only past this (50..500 yd)
     arrowWaitSeconds = 60,   -- ...and only after this long without progress for that quest (15..180 s)
+    arrowHideCombat = true,  -- the arrow hides while you are in combat (UI/ArrowCombat.lua)
+    arrowCombatWait = false, -- ...and comes back after arrowCombatDelay (off = right after the fight)
+    arrowCombatDelay = 30,   -- seconds, 10..120
+    arrowUseArea = true,     -- the arrow uses the quest's blue map area: hidden inside it and near it (UI/QuestArea.lua)
+    arrowAreaYards = 40,     -- ..."near" = this close to the area (0..100 yd)
+    arrowCorpse = true,      -- dead: the arrow leads to your corpse (off = no arrow until alive) - UI/ArrowCorpse.lua
+    arrowCorpseYards = 30,   -- ...and hides this close to it (20..100 yd)
     arrowLocked = true,
     arrowStyle = "Game",     -- picture of the arrow (UI/Arrow.lua STYLES)
     arrowSize = 42,          -- px, 24..96
     arrowColor = "Default",  -- UI/Arrow.lua COLORS      -- arrow can't be dragged
     -- arrowPos: saved spot {x, y} after you move the arrow (nil = top centre of the screen)
     autoFocusTurnIns = false, -- auto focus / arrow also lead to quests ready to turn in (closest of all)
+    mobColors = true,        -- quest mark on mobs coloured by the mob's difficulty (Mobs/MobLook.lua)
+    mobColorsCustom = false, -- ...by your own level limits (separate from the quest colours)
+    mobColorRed = 4, mobColorOrange = 2, mobColorGreen = 3, mobColorGrey = 7, -- levels above / below you
+    mobProgress = true,
+    objectProgress = true,   -- "7/8 !" next to the cursor over quest objects (Mobs/ObjectProgress.lua)      -- quest progress (e.g. 3/10) next to the mark
+    quietFlying = true,      -- flying with a flight master: no mob marks / sounds / arrow (Quests/Quiet.lua)
+    quietCities = true,      -- major cities: the same, and the quest list folds up while you are there
+    focusedFirst = true,     -- a quest you focus yourself is always in the list, on top (Quests/FocusFirst.lua)
     autoFocusNearest = true, -- with "Only quests near me": the closest quest gets the focus
     listLocked = true,       -- quest list can't be dragged (Interface page)
     listWidth = 260,         -- px, 200..500
@@ -27,6 +42,12 @@ local defaults = {
     listScale = 100,         -- % size of the whole list (60..150)
     listFontSize = 12,       -- px text size inside the list (9..16)
     optionsScale = 100,      -- % size of the options window (70..130)
+    questColors = true,      -- quest titles coloured by difficulty (UI/QuestColor.lua)
+    questColorsCustom = false, -- ...by your own level limits instead of the game's
+    questColorRed = 5,       -- levels above you: very hard (1..10)
+    questColorOrange = 3,    -- levels above you: hard (1..10)
+    questColorGreen = 3,     -- levels below you: easy (1..10)
+    questColorGrey = 8,      -- levels below you: too easy (1..15)
     listBackground = false,  -- dark panel behind the list
     listOpacity = 60,        -- % of that panel
     -- listPos: saved spot {right, top} after you move the list (nil = the default spot, see UI/ListLayout.lua)
@@ -42,6 +63,10 @@ local defaults = {
     markQuestMobs = true,    -- quest mark on quest mobs
     -- showNameplates: not listed on purpose - on first run it is read from the game's own setting
 }
+
+-- Debug log. Does nothing on its own: the separate QuestWise_Debug add-on (game folder only, never
+-- published) replaces it when it is installed. Use: NA.Debug("topic", ...)
+function NA.Debug() end
 
 -- Record an error without printing anything to chat.
 function NA.LogError(msg)
@@ -94,15 +119,14 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON then
-        -- before it got its name the add-on kept its settings in NewAddonDB: move them over once
-        if QuestWiseDB == nil and type(NewAddonDB) == "table" then QuestWiseDB = NewAddonDB end
-        NewAddonDB = nil
         QuestWiseDB = QuestWiseDB or {}
         for k, v in pairs(defaults) do
             if QuestWiseDB[k] == nil then QuestWiseDB[k] = v end
         end
         NA.db = QuestWiseDB
     elseif event == "PLAYER_LOGIN" then
+        -- the optional debug add-on gets our shared table (it is not there for players)
+        if type(QuestWiseDebug_Attach) == "function" then NA.SafeCall(QuestWiseDebug_Attach, NA) end
         for _, fn in ipairs(initCallbacks) do
             local ok, err = NA.SafeCall(fn)
             if not ok then NA.LogError(err) end

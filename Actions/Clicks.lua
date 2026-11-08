@@ -46,15 +46,13 @@ function Actions.ToggleFocus(questID)
     if NA.Tracker then NA.Tracker.RequestRefresh() end
 end
 
+-- mouse over a quest: the info box with what to do (UI/QuestInfo.lua)
 function Actions.ShowTooltip(owner, quest)
     if not quest then return end
-    GameTooltip:SetOwner(owner, "ANCHOR_LEFT")
-    GameTooltip:AddLine(quest.title, 1, 0.82, 0)
-    GameTooltip:AddLine("Click: open quest log", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("Shift-click: stop tracking", 0.8, 0.8, 0.8)
-    GameTooltip:Show()
+    if NA.QuestInfo then return NA.QuestInfo.Show(owner, quest) end
 end
 
 function Actions.HideTooltip()
+    if NA.QuestInfo then return NA.QuestInfo.Hide() end
     GameTooltip:Hide()
 end

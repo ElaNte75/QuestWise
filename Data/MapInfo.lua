@@ -24,6 +24,8 @@ local function worldSize(mapID)
     return nil
 end
 
+M.PlayerPos, M.WorldSize = playerPos, worldSize -- also used by UI/ArrowCorpse.lua
+
 local function build()
     -- ok: map data available; distOK: distances in yards available
     local ctx = { ok = false, distOK = false, onMap = {}, dist = {}, vec = {} } -- vec: {dx east, dy south} in yards

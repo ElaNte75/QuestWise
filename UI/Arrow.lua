@@ -5,9 +5,12 @@
 --     map, or you "arrived": got within arrowArriveYards OR the quest moved on (counted kill,
 --     looted item, quest item used). It comes back only when you are farther than
 --     arrowReturnYards AND nothing happened for that quest for arrowWaitSeconds.
+--   * the quest's blue map area (UI/QuestArea.lua, option arrowUseArea): hidden while you are in it
+--     or within arrowAreaYards of it; back as soon as you are farther from it
 --   * unlock it in Options -> Quest list to drag it; while unlocked it always shows, with an outline
 -- Settings: arrowEnabled, arrowLocked, arrowPos {x, y} (centre, screen units from bottom-left),
 --   arrowStyle (STYLES key), arrowSize (px), arrowColor (COLORS key).
+-- Hidden in combat: UI/ArrowCombat.lua. Dead: leads to your corpse (UI/ArrowCorpse.lua).
 -- Our arrow pictures are white (Textures/Arrow_*.tga, made by _tools/make_arrows.py) and get
 -- tinted with the chosen colour; new picture files need a full game restart.
 local ADDON, NA = ...
@@ -102,7 +105,6 @@ function A.WaitSeconds() return NA.db.arrowWaitSeconds or DEFAULT_WAIT end
 function A.Activity(questID, why)
     if not questID then return end
     local s = state[questID]
-    if not (s and s.arrived) then A.Log("arrived (" .. why .. ")", questID, nil) end
     state[questID] = { arrived = true, active = GetTime() }
 end
 
@@ -134,7 +136,6 @@ local function checkProgress()
     progress[id], doneBefore[id] = n, done
     if done and wasDone == false then
         state[id] = nil
-        A.Log("completed -> guide to turn-in", id, nil)
     elseif not done and before and n > before then
         A.Activity(id, "progress")
     end
@@ -147,7 +148,6 @@ local function onFocusChanged()
     if not id then return end
     local AF = NA.AutoFocus
     if not (AF and AF.LastSet and AF.LastSet() == id) then
-        if state[id] then A.Log("focused by hand -> guide again", id, nil) end
         state[id] = nil
     end
     checkProgress()
@@ -191,20 +191,23 @@ local function hide()
     A.title:SetText("drag to move")
 end
 
--- TEMPORARY debug: silent log of what the arrow decides (QuestWiseProbeDB.arrowLog, last 80)
-function A.Log(what, id, d)
-    local db = QuestWiseProbeDB
-    if not db then return end
-    db.arrowLog = db.arrowLog or {}
-    table.insert(db.arrowLog, string.format("%s %s | quest=%s %s | d=%s | hide<%d return>%d wait=%ds",
-        date("%H:%M:%S"), what, tostring(id), id and questTitle(id) or "", d and string.format("%.0f", d) or "nil", A.ArriveYards(), A.ReturnYards(), A.WaitSeconds()))
-    while #db.arrowLog > 80 do table.remove(db.arrowLog, 1) end
-end
-
 function A.Update()
     local f = A.frame
     if not f then return end
     if not A.IsOn() then f:Hide(); return end
+    -- dead: lead to your corpse instead (UI/ArrowCorpse.lua); not released yet = nothing to show.
+    -- Checked before the combat hiding: dying ends the fight, and the corpse arrow must not wait for it.
+    local C = NA.ArrowCorpse
+    if C and C.IsDead() then
+        local t = C.IsOn() and C.Target()
+        local face = facing()
+        if not (t and face) or t.dist < C.HideYards() then return hide() end
+        return A.PointTo(t.vec, t.dist, face, "Your corpse")
+    end
+    -- in combat (and the wait after it, if chosen): hidden - UI/ArrowCombat.lua
+    if NA.ArrowCombat and NA.ArrowCombat.IsHiding() then f:Hide(); return end
+    -- flying / in a major city: hidden - Quests/Quiet.lua
+    if NA.Quiet and NA.Quiet.Arrow() then f:Hide(); return end
 
     local id = focusedID()
     if not id then return hide() end
@@ -214,22 +217,28 @@ function A.Update()
     local face = facing()
     if not (v and d and face) then return hide() end
 
-    -- TEMPORARY debug: focus changes
-    if A.dbgLast ~= id then A.Log("focus", id, d); A.dbgLast = id end
-
     -- "arrived" = you got close to its spot OR the quest moved on (A.Activity); remembered per quest.
     -- It comes back only when you are far away AND nothing happened for that quest for a while.
     local s = state[id]
     local now = GetTime()
+    -- inside the quest's blue map area or near it (UI/QuestArea.lua): you are there, hidden.
+    -- Arrived that way, it comes back as soon as you are farther from the area than the margin.
+    local QA = NA.QuestArea
+    local near = QA and QA.Near(id)
+    if near then
+        state[id] = { arrived = true, active = now, byArea = true }
+        return hide()
+    end
+    if near == false and s and s.arrived and s.byArea then
+        s.arrived = false
+    end
     if d < A.ArriveYards() then
-        if not (s and s.arrived) then A.Log("arrived (close)", id, d) end
         s = { arrived = true, active = now }
         state[id] = s
     end
     if s and s.arrived then
         if d > math.max(A.ReturnYards(), A.ArriveYards() + 10) and now - s.active > A.WaitSeconds() then
             s.arrived = false
-            A.Log("returned", id, d)
         else
             return hide()
         end
@@ -237,12 +246,17 @@ function A.Update()
 
     -- bearing to the quest, counter-clockwise from north (map x = east, map y = south),
     -- minus where you face = how much to turn the arrow (it points up = straight ahead)
+    A.PointTo(v, d, face, questTitle(id))
+end
+
+-- turn the arrow toward v = {dx east, dy south} (yards), show the distance d and a name
+function A.PointTo(v, d, face, name)
     local bearing = (math.atan2 or math.atan)(-v[1], -v[2])
     A.arrow:SetRotation(bearing - face)
     A.arrow:SetAlpha(1)
     A.dist:SetText(string.format("%d yd", math.floor(d + 0.5)))
-    A.title:SetText(questTitle(id))
-    f:Show()
+    A.title:SetText(name)
+    A.frame:Show()
 end
 
 NA.OnInit(function()

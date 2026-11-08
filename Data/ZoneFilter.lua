@@ -17,22 +17,4 @@ function Zone.Test(q, ctx)
     return false
 end
 
--- TEMPORARY debug: remember what was decided each time the zone changes.
-local lastKey
-function Zone.Report(quests, ctx, passed)
-    local key = tostring(ctx.mapID) .. "/" .. #quests
-    if key == lastKey then return end
-    lastKey = key
-    local db = QuestWiseProbeDB
-    if not db then return end
-    db.zoneLog = db.zoneLog or {}
-    local entry = { time = date("%H:%M:%S"), mapID = ctx.mapID, zoneID = ctx.zoneID, zoneName = ctx.zoneName, ok = ctx.ok, quests = {} }
-    for _, q in ipairs(quests) do
-        entry.quests[#entry.quests + 1] = string.format("%s | header=%s complete=%s onMap=%s -> %s",
-            q.title, tostring(q.zone), tostring(q.isComplete), tostring(ctx.onMap[q.questID] == true), passed[q.questID] and "SHOW" or "hide")
-    end
-    table.insert(db.zoneLog, entry)
-    while #db.zoneLog > 10 do table.remove(db.zoneLog, 1) end
-end
-
 NA.Filters.Register(Zone)

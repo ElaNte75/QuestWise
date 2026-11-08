@@ -5,15 +5,18 @@ local FONT = "Fonts\\FRIZQT__.TTF"
 
 NA.Header = {}
 
--- opts: width, height, bg, bgW, bgH, collapse, expand, iconW, iconH, highlight, iconX, label
+-- opts: width, height, bg, bgW, bgH, collapse, expand, iconW, iconH, highlight, iconX, label, reserve
+-- (reserve = room kept free on the right for the buttons)
 function NA.Header.Create(parent, opts)
     local btn = CreateFrame("Button", nil, parent)
+    local reserve = opts.reserve or 52
     btn:SetSize(opts.width, opts.height)
 
     local bg = btn:CreateTexture(nil, "BACKGROUND")
     bg:SetSize(opts.bgW, opts.bgH)
     bg:SetPoint("CENTER")
     NA.SetAtlas(bg, opts.bg)
+    btn.art = bg -- the gold-framed bar picture (UI/ListLayout.lua fits the folded background inside it)
 
     local text = btn:CreateFontString(nil, "OVERLAY")
     text:SetFont(FONT, 14, "")
@@ -22,7 +25,7 @@ function NA.Header.Create(parent, opts)
     text:SetShadowColor(0, 0, 0, 1)
     text:SetJustifyH("LEFT")
     text:SetPoint("LEFT", 7, 0)
-    text:SetWidth(opts.width - 52)
+    text:SetWidth(opts.width - reserve)
     text:SetText(opts.label)
     btn.text = text
 
@@ -50,7 +53,7 @@ function NA.Header.Create(parent, opts)
     -- the list can be made wider or narrower in the options
     function btn:SetWidthTo(w)
         btn:SetWidth(w)
-        text:SetWidth(w - 52)
+        text:SetWidth(w - reserve)
     end
 
     function btn:SetCollapsed(collapsed)

@@ -7,9 +7,7 @@ NA.QuestMobMarker = Marker
 
 local ICON_SIZE = 16
 local ICON_ATLASES = { "QuestNormal", "Quest-In-Progress-Icon-yellow" }
-local MAX_LOG = 12
 
-local logged = 0
 local pending = false
 
 -- Quests seen "nearby": title -> time a mob of that quest was last seen around you.
@@ -22,8 +20,21 @@ local function keepSeconds()
 end
 
 -- Is the quest of a mob you found still counted as "here"? (off = quests are never added because of mobs)
+-- dead or a ghost: no scanning, no marks, no sound, no "near" quests until you are alive again
+local function playerDead()
+    if type(UnitIsDeadOrGhost) ~= "function" then return false end
+    local ok, v = pcall(UnitIsDeadOrGhost, "player")
+    return ok and v and true or false
+end
+Marker.PlayerDead = playerDead
+
+-- dead, flying, or in a major city (Quests/Quiet.lua): no scanning, marks, sound or "near" quests
+local function quiet()
+    return playerDead() or (NA.Quiet ~= nil and NA.Quiet.Mobs())
+end
+
 function Marker.IsQuestNear(title)
-    if NA.db.mobAddsQuest == false then return false end
+    if NA.db.mobAddsQuest == false or quiet() then return false end
     local t = title and near[title]
     return t ~= nil and (GetTime() - t) <= keepSeconds()
 end
@@ -93,7 +104,10 @@ local function readTooltip(unit)
                     local a, b = text:match("(%d+)%s*/%s*(%d+)")
                     if a then
                         cur.fractions = cur.fractions + 1
-                        if tonumber(a) < tonumber(b) then cur.open = cur.open + 1 end
+                        if tonumber(a) < tonumber(b) then
+                            cur.open = cur.open + 1
+                            cur.progress = cur.progress or (a .. "/" .. b) -- shown next to the mark (Mobs/MobLook.lua)
+                        end
                     end
                 end
             end
@@ -139,7 +153,7 @@ local function isQuestMob(unit)
         for _, t in ipairs(quests) do
             if stillNeeded(t, name) then titles[#titles + 1] = t.title end
         end
-        return #titles > 0, "tooltip", titles, raw
+        return #titles > 0, "tooltip", titles, raw, quests
     end
     if C_QuestLog.UnitIsRelatedToActiveQuest then
         local ok, r = pcall(C_QuestLog.UnitIsRelatedToActiveQuest, unit)
@@ -185,13 +199,35 @@ local function getOverlay(plate)
     local name = f:CreateFontString(nil, "OVERLAY")
     name:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
     name:SetPoint("CENTER", f, "CENTER", 0, 0)
-    o = { frame = f, icon = icon, name = name }
+    -- quest progress (e.g. 3/10) on the left of the mark, its right end tucked close to the "!"
+    -- (the "!" is thin in the middle of its square, so +4 reaches into the empty side); longer numbers grow leftwards
+    local progress = f:CreateFontString(nil, "OVERLAY")
+    progress:SetFont("Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
+    progress:SetPoint("RIGHT", icon, "LEFT", 4, 0)
+    o = { frame = f, icon = icon, name = name, progress = progress }
     overlays[plate] = o
     return o
 end
 
-local function showMark(plate, unit)
+-- the mark's colour by difficulty and the progress text (Mobs/MobLook.lua)
+local function styleMark(o, unit, quests, titles)
+    local ML = NA.MobLook
+    local c = ML and ML.ColorFor(unit)
+    o.icon:SetDesaturated(c ~= nil)
+    if c then o.icon:SetVertexColor(c[1], c[2], c[3]) else o.icon:SetVertexColor(1, 1, 1) end
+    local text = ML and ML.ProgressFor(unit, quests, titles)
+    if text then
+        o.progress:SetText(text)
+        if c then o.progress:SetTextColor(c[1], c[2], c[3]) else o.progress:SetTextColor(1, 0.82, 0) end
+        o.progress:Show()
+    else
+        o.progress:Hide()
+    end
+end
+
+local function showMark(plate, unit, quests, titles)
     local o = getOverlay(plate)
+    styleMark(o, unit, quests, titles)
     o.icon:ClearAllPoints()
     if nameOnly() then
         local r, g, b = 1, 0.15, 0.15
@@ -211,7 +247,7 @@ end
 
 local function hideMark(plate)
     local o = overlays[plate]
-    if o then o.icon:Hide(); o.name:Hide() end
+    if o then o.icon:Hide(); o.name:Hide(); o.progress:Hide() end
 end
 
 -- In name-only mode the game's own plate drawing is kept invisible (and made invisible again
@@ -235,55 +271,23 @@ local function applyPlateMode(plate)
     end
 end
 
-local function keyList(t, pattern, limit)
-    local out = {}
-    if type(t) ~= "table" then return out end
-    for k, v in pairs(t) do
-        if type(k) == "string" and (not pattern or k:find(pattern)) then out[#out + 1] = k .. ":" .. type(v) end
-    end
-    table.sort(out)
-    while #out > (limit or 30) do table.remove(out) end
-    return out
-end
-
--- TEMPORARY debug: what do the nameplates look like in this game version?
-local function logPlate(unit, plate, related, method, raw)
-    if logged >= MAX_LOG then return end
-    logged = logged + 1
-    local db = QuestWiseProbeDB
-    db.mobs = db.mobs or {}
-    local uf = plate.UnitFrame
-    db.mobs[#db.mobs + 1] = {
-        unit = unit, name = UnitName(unit), related = related, method = method,
-        tooltip = table.concat(raw or {}, " | "),
-        canAttack = UnitCanAttack("player", unit) and true or false,
-        mode = nameOnly() and "name-only" or "plates",
-        showNameplates = tostring(NA.db.showNameplates),
-        unitFrameKeys = table.concat(keyList(uf, nil, 60), ","),
-        hasHealthBar = healthBarOf(uf) and true or false,
-        unitFrameAlpha = uf and uf.GetAlpha and uf:GetAlpha() or -1,
-    }
-    while #db.mobs > MAX_LOG do table.remove(db.mobs, 1) end
-end
-
 function Marker.UpdateUnit(unit)
     if not unit or not UnitExists(unit) then return end
     local plate = getPlate(unit)
     if not plate then return end
     applyPlateMode(plate)
-    local related, method, titles, raw = false, "off", {}, {}
-    if NA.db.markQuestMobs and UnitCanAttack("player", unit) and not UnitIsPlayer(unit) and not UnitIsDead(unit) then
-        related, method, titles, raw = isQuestMob(unit)
+    local related, method, titles, raw, quests = false, "off", {}, {}, nil
+    if NA.db.markQuestMobs and not quiet() and UnitCanAttack("player", unit) and not UnitIsPlayer(unit) and not UnitIsDead(unit) then
+        related, method, titles, raw, quests = isQuestMob(unit)
     end
     local counts = related and not ignoredAsTapped(unit)
     relatedUnits[unit] = (counts and #titles > 0) and { guid = UnitGUID(unit), titles = titles } or nil
     if related then
         if counts then noteNear(titles) end
-        showMark(plate, unit)
+        showMark(plate, unit, quests, titles)
     else
         hideMark(plate)
     end
-    logPlate(unit, plate, related, method, raw)
 end
 
 function Marker.RefreshAll()
@@ -296,6 +300,7 @@ local function requestRefresh()
     pending = true
     C_Timer.After(0.2, function() NA.SafeCall(Marker.RefreshAll) end)
 end
+Marker.RequestRefresh = requestRefresh
 
 NA.OnInit(function()
     -- every few seconds: quests whose mob is still around stay "nearby"; quests whose mobs are
@@ -303,7 +308,7 @@ NA.OnInit(function()
     C_Timer.NewTicker(3, function()
         local now = GetTime()
         for unit, info in pairs(relatedUnits) do
-            if UnitExists(unit) and UnitGUID(unit) == info.guid and not UnitIsDead(unit)
+            if not quiet() and UnitExists(unit) and UnitGUID(unit) == info.guid and not UnitIsDead(unit)
                 and not ignoredAsTapped(unit) then
                 for _, title in ipairs(info.titles) do near[title] = now end
             else
@@ -319,7 +324,7 @@ NA.OnInit(function()
 
     local ev = CreateFrame("Frame")
     for _, name in ipairs({ "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "QUEST_LOG_UPDATE", "UNIT_QUEST_LOG_CHANGED",
-                            "UNIT_FLAGS", "UNIT_DYNAMIC_FLAGS" }) do
+                            "UNIT_FLAGS", "UNIT_DYNAMIC_FLAGS", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST" }) do
         pcall(ev.RegisterEvent, ev, name)
     end
     ev:SetScript("OnEvent", function(_, event, unit)

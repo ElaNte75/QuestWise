@@ -50,22 +50,4 @@ function Dist.Test(q, ctx)
     return NA.QuestMobMarker ~= nil and NA.QuestMobMarker.IsQuestNear(q.title)
 end
 
--- TEMPORARY debug: distances seen (at most one entry every 5 seconds).
-local lastLog = 0
-function Dist.Report(quests, ctx, passed)
-    local now = GetTime()
-    if now - lastLog < 5 then return end
-    lastLog = now
-    local db = QuestWiseProbeDB
-    if not db then return end
-    db.distLog = db.distLog or {}
-    local entry = { time = date("%H:%M:%S"), limit = yards(), distOK = ctx.distOK, quests = {} }
-    for _, q in ipairs(quests) do
-        local d = ctx.dist[q.questID]
-        entry.quests[#entry.quests + 1] = string.format("%s | dist=%s -> %s", q.title, d and string.format("%.0f", d) or "nil", passed[q.questID] and "SHOW" or "hide")
-    end
-    table.insert(db.distLog, entry)
-    while #db.distLog > 8 do table.remove(db.distLog, 1) end
-end
-
 NA.Filters.Register(Dist)

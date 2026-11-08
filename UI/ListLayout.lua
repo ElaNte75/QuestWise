@@ -16,6 +16,12 @@ local DEFAULT_X, DEFAULT_Y = -67, -403
 L.PAD_LEFT = 24
 L.PAD_RIGHT = 6
 
+-- background panel edges around the list frame, and how far under the title bar its gold line ends
+local BG_LEFT, BG_RIGHT, BG_TOP = -12, 4, 0
+local TITLE_LINE = 3
+-- folded list: the title's dark panel sits just inside the gold frame of the bar picture
+local FOLD_IN_LEFT, FOLD_IN_RIGHT, FOLD_IN_Y = 9, 15, 6 -- the picture's right end is wider
+
 local function clamp(v, lo, hi) return math.min(math.max(v, lo), hi) end
 
 L.MIN_WIDTH, L.MAX_WIDTH, L.MIN_HEIGHT = MIN_WIDTH, MAX_WIDTH, MIN_HEIGHT
@@ -49,16 +55,45 @@ function L.IsLocked()
     return NA.db.listLocked ~= false
 end
 
+-- Saved spot (screen units, kept from the corner of the screen nearest to the list, so a change of
+-- resolution doesn't move it away from the minimap / bars):
+--   listPos = { side = "LEFT"/"RIGHT", vert = "TOP"/"BOTTOM", x = from that side, y = list top from that edge }
+-- Old saves { right, top } (from the bottom-left corner) are turned into this the first time.
+local function screenSize()
+    return UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
+end
+
+-- right / top of the list in screen units -> saved spot from the nearest corner
+local function cornerPos(right, top, width)
+    local sw, sh = screenSize()
+    local left = right - (width or 0)
+    local side = ((left + right) / 2 > sw / 2) and "RIGHT" or "LEFT"
+    local vert = (top > sh / 2) and "TOP" or "BOTTOM"
+    return {
+        side = side, vert = vert,
+        x = side == "RIGHT" and (right - sw) or left,
+        y = vert == "TOP" and (top - sh) or top,
+    }
+end
+L.CornerPos = cornerPos
+
 -- Puts the list where you left it, or at the default spot (right side, below the minimap).
+-- Not in combat (the list holds a secure item button): then it is done when the fight ends.
 function L.ApplyPosition(f)
     f = f or L.frame
     if not f then return end
-    f:ClearAllPoints()
+    if InCombatLockdown() then L.positionPending = true; return end
+    L.positionPending = false
     -- positions are kept in screen units; the frame's offsets are in its own (scaled) units
     local r = f:GetScale() or 1
     local p = NA.db.listPos
-    if p and p.right and p.top then
-        f:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", p.right / r, p.top / r)
+    if p and p.right and p.top and not p.side then -- old save
+        p = cornerPos(p.right, p.top, (f:GetWidth() or 0) * r)
+        NA.db.listPos = p
+    end
+    f:ClearAllPoints()
+    if p and p.side and p.x and p.y then
+        f:SetPoint("TOP" .. p.side, UIParent, p.vert .. p.side, p.x / r, p.y / r)
     else
         f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", DEFAULT_X / r, DEFAULT_Y / r)
     end
@@ -84,8 +119,21 @@ end
 -- Background and the "you can move me" outline.
 function L.ApplyLook()
     if not L.bg then return end
-    L.bg:SetShown(NA.db.listBackground and true or false)
+    local on = NA.db.listBackground and true or false
     local a = clamp(tonumber(NA.db.listOpacity) or 60, 10, 100) / 100
+    -- the title bar has its own panel, a little darker; the list's panel starts under its gold line
+    L.titleBg:SetShown(on)
+    L.titleBg:ClearAllPoints()
+    local art = L.header and L.header.art
+    if NA.db.collapsedAll and art then
+        L.titleBg:SetPoint("TOPLEFT", art, "TOPLEFT", FOLD_IN_LEFT, -FOLD_IN_Y)
+        L.titleBg:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", -FOLD_IN_RIGHT, FOLD_IN_Y)
+    else
+        L.titleBg:SetPoint("TOPLEFT", L.frame, "TOPLEFT", BG_LEFT, BG_TOP)
+        L.titleBg:SetPoint("BOTTOMRIGHT", L.header, "BOTTOMRIGHT", BG_RIGHT, -TITLE_LINE)
+    end
+    L.titleBg:SetColorTexture(0.012, 0.01, 0.008, math.min(1, a + 0.2))
+    L.bg:SetShown(on and not NA.db.collapsedAll)
     L.bg:SetColorTexture(0.03, 0.025, 0.02, a)
     local unlocked = not L.IsLocked()
     for _, e in ipairs(L.edges) do e:SetShown(unlocked) end
@@ -142,21 +190,27 @@ end
 -- Called once by the tracker: f = the list frame, header = its title bar (drag it to move).
 function L.Setup(f, header)
     L.frame = f
+    L.header = header
     f:SetMovable(true)
     f:SetClampedToScreen(true)
 
-    -- background panel: a little larger than the list
+    -- background: one panel for the title bar (down to its gold line) and one for the quests under it.
+    -- A little wider than the list on the left (the quest circles stick out there).
+    local titleBg = f:CreateTexture(nil, "BACKGROUND")
+    titleBg:SetPoint("TOPLEFT", f, "TOPLEFT", BG_LEFT, BG_TOP)
+    titleBg:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", BG_RIGHT, -TITLE_LINE)
+    L.titleBg = titleBg
     local bg = f:CreateTexture(nil, "BACKGROUND")
-    bg:SetPoint("TOPLEFT", f, "TOPLEFT", -12, 6)
-    bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 8, -8)
+    bg:SetPoint("TOPLEFT", header, "BOTTOMLEFT", BG_LEFT, -TITLE_LINE)
+    bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", BG_RIGHT, -8)
     L.bg = bg
 
     -- thin gold outline, visible only while the list is unlocked
     L.edges = {}
     local function edge(a1, a2, w, h)
         local t = f:CreateTexture(nil, "BORDER")
-        t:SetPoint(a1, f, a1, a1:find("LEFT") and -12 or 8, a1:find("TOP") and 6 or -8)
-        t:SetPoint(a2, f, a2, a2:find("LEFT") and -12 or 8, a2:find("TOP") and 6 or -8)
+        t:SetPoint(a1, f, a1, a1:find("LEFT") and BG_LEFT or BG_RIGHT, a1:find("TOP") and BG_TOP or -8)
+        t:SetPoint(a2, f, a2, a2:find("LEFT") and BG_LEFT or BG_RIGHT, a2:find("TOP") and BG_TOP or -8)
         if w then t:SetWidth(w) else t:SetHeight(h) end
         t:SetColorTexture(1, 0.82, 0.30, 0.8)
         L.edges[#L.edges + 1] = t
@@ -178,11 +232,24 @@ function L.Setup(f, header)
         L.moving = false
         f:StopMovingOrSizing()
         local right, top, r = f:GetRight(), f:GetTop(), f:GetScale() or 1
-        if right and top then NA.db.listPos = { right = right * r, top = top * r } end -- screen units
+        if right and top then NA.db.listPos = cornerPos(right * r, top * r, (f:GetWidth() or 0) * r) end -- screen units
         L.ApplyPosition(f) -- anchor it cleanly at the new spot
     end)
 
     L.ApplyScale()
     L.ApplyPosition(f)
     L.ApplyLook()
+
+    -- the game's resolution / window size / UI scale changed (e.g. a screen went dark and came back):
+    -- put the list back where you left it
+    local ev = CreateFrame("Frame")
+    for _, e in ipairs({ "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_ENABLED" }) do
+        pcall(ev.RegisterEvent, ev, e)
+    end
+    ev:SetScript("OnEvent", function(_, event)
+        if event == "PLAYER_REGEN_ENABLED" and not L.positionPending then return end
+        if L.moving then return end
+        NA.SafeCall(L.ApplyPosition)
+    end)
+    L.events = ev
 end
