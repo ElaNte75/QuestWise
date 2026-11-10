@@ -233,7 +233,9 @@ function(env)
     sc0 = soundCalls; NA.QuestMobMarker.UpdateUnit("nameplate1")
     local qf = tostring(NA.QuestMobMarker.IsQuestNear("Ghost Quest")) .. "/sound=" .. (soundCalls - sc0)
     NA.db.quietFlying = false; local qf2 = tostring(NA.QuestMobMarker.IsQuestNear("Ghost Quest")); NA.db.quietFlying = true
-    flying = false
+    NA.db.collapsedAll = false; NA.Quiet.Check(); local qfl = tostring(NA.db.collapsedAll)
+    flying = false; NA.Quiet.Check(); qfl = qfl .. "/" .. tostring(NA.db.collapsedAll)
+    out[#out+1] = "list folds while flying (want true/false): " .. qfl
     local realBest = C_Map.GetBestMapForUnit
     NA.db.collapsedAll = false
     C_Map.GetBestMapForUnit = function() return 1454 end; NA.Quiet.Check()

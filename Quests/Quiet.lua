@@ -1,5 +1,6 @@
 -- Quests: "stay quiet" times - while flying (flight master) and inside the major cities.
---   * flying (quietFlying): no quest-mob marks, no sounds, no arrow
+--   * flying (quietFlying): no quest-mob marks, no sounds, no arrow, and the list folds up like in a
+--     city (user decision 2026-11-10), opening again when you land
 --   * major city (quietCities): the same, and the quest list folds up to its title; when you leave
 --     the city it opens again (only if the city folded it - not if you folded it yourself)
 -- Mobs/QuestMobMarker.lua and UI/Arrow.lua ask Quiet.Mobs() / Quiet.Arrow().
@@ -57,7 +58,8 @@ function Q.Mobs() return flyingQuiet() or cityQuiet() end
 -- no arrow right now
 function Q.Arrow() return flyingQuiet() or cityQuiet() end
 
--- the quest list folds up when you come into a city and opens again when you leave
+-- the quest list folds up when you come into a city (or take a flight) and opens again when you leave
+-- (quietCityFolded = "the quiet time folded it", for cities and flights alike)
 local wasCity = nil
 local wasQuiet = nil
 
@@ -68,7 +70,7 @@ local function refreshAll()
 end
 
 function Q.Check()
-    local city = cityQuiet()
+    local city = cityQuiet() or flyingQuiet()
     if city ~= wasCity then
         if city then
             if not NA.db.collapsedAll then

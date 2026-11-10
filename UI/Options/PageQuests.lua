@@ -117,7 +117,7 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
     end
     st:Add(W.Section(parent, "Stay quiet"), "section")
     st:Add(add(W.Checkbox(parent, "Quiet while flying",
-        "While you fly with a flight master: no marks on quest mobs, no sounds, no arrow. Back to normal when you land.",
+        "While you fly with a flight master: no marks on quest mobs, no sounds, no arrow, and the quest list folds up to its title (you can still open it). Back to normal when you land, unless you folded or opened the list yourself.",
         function() return NA.db.quietFlying ~= false end,
         function(v) NA.db.quietFlying = v; quietChanged() end)), "row")
     st:Add(add(W.Checkbox(parent, "Quiet in major cities",
