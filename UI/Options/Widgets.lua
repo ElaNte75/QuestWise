@@ -24,8 +24,52 @@ W.colors = {
     hover         = { 1, 1, 1, 0.06 },
     selectedBg    = { 1, 0.82, 0.30, 0.12 },
     track         = { 1, 1, 1, 0.10 },
+    buttonBg      = { 1, 0.82, 0.30, 0.08 },
+    buttonHover   = { 1, 0.82, 0.30, 0.16 },
+    popupBg       = { 0.06, 0.05, 0.04, 0.98 },
+    sliderFill    = { 0.80, 0.66, 0.36, 0.75 },
+    thumbHover    = { 1, 0.92, 0.55, 1 },
 }
 local C = W.colors
+-- (UI/Theme.lua changes these colours in place when you pick another look preset)
+
+-- Everything painted with one of W.colors is remembered, so a new preset can repaint it.
+local painted = {}
+local function keyOf(color)
+    for k, v in pairs(C) do if v == color then return k end end
+end
+local function remember(obj, color, kind)
+    local key = keyOf(color)
+    if key then painted[#painted + 1] = { obj = obj, key = key, kind = kind } end
+end
+-- panels may get the preset's background picture instead of a flat colour (UI/Theme.lua)
+function W.PaintFill(tex, key, color)
+    if NA.Theme and NA.Theme.PaintPanel then return NA.Theme.PaintPanel(tex, key, color) end
+    tex:SetColorTexture(unpack(color))
+end
+
+local function paint(p)
+    local c = C[p.key]
+    if p.kind == "fill" then W.PaintFill(p.obj, p.key, c)
+    elseif p.kind == "vertex" then p.obj:SetVertexColor(unpack(c))
+    elseif p.kind == "text" then p.obj:SetTextColor(unpack(c))
+    elseif p.kind == "outline" then p.obj:SetOutlineColor(unpack(c)) end
+end
+
+-- colour a texture with one of W.colors (and repaint it when the preset changes)
+function W.Paint(tex, color)
+    tex:SetColorTexture(unpack(color))
+    remember(tex, color, "fill")
+end
+function W.Tint(tex, color)
+    tex:SetVertexColor(unpack(color))
+    remember(tex, color, "vertex")
+end
+
+-- repaints everything with the current W.colors (called by UI/Theme.lua)
+function W.Recolor()
+    for _, p in ipairs(painted) do paint(p) end
+end
 
 -- every distance on every page comes from here
 W.size = {
@@ -56,13 +100,16 @@ function W.Text(parent, size, color, layer)
     fs:SetShadowColor(0, 0, 0, 0.9)
     fs:SetJustifyH("LEFT")
     fs:SetTextColor(unpack(color or C.text))
+    remember(fs, color or C.text, "text")
     return fs
 end
 
 function W.Fill(frame, color, layer)
     local t = frame:CreateTexture(nil, layer or "BACKGROUND")
     t:SetAllPoints()
-    t:SetColorTexture(unpack(color))
+    local key = keyOf(color)
+    if key then W.PaintFill(t, key, color) else t:SetColorTexture(unpack(color)) end
+    remember(t, color, "fill")
     return t
 end
 
@@ -83,6 +130,7 @@ function W.Outline(frame, color)
         for _, t in ipairs(edges) do t:SetColorTexture(r, g, b, a) end
     end
     frame:SetOutlineColor(unpack(color or C.border))
+    remember(frame, color or C.border, "outline")
 end
 
 local function attachTooltip(frame, title, text)
@@ -164,7 +212,7 @@ function W.Section(parent, text, opts)
     fs:SetPoint("LEFT", x, 0)
     fs:SetText(string.upper(text))
     local line = f:CreateTexture(nil, "ARTWORK")
-    line:SetColorTexture(unpack(C.divider))
+    W.Paint(line, C.divider)
     line:SetHeight(1)
     line:SetPoint("LEFT", fs, "RIGHT", 10, 0)
     line:SetPoint("RIGHT", f, "RIGHT", 0, 0)
@@ -231,7 +279,7 @@ function W.Checkbox(parent, label, tip, get, set)
     mark:SetSize(20, 20)
     mark:SetPoint("CENTER", 1, 0)
     mark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-    mark:SetVertexColor(unpack(C.gold))
+    W.Tint(mark, C.gold)
 
     local text = W.Text(check, S.font, C.text)
     text:SetPoint("LEFT", box, "RIGHT", S.indent - 16, 0)
@@ -265,13 +313,13 @@ end
 function W.Button(parent, text, width, height, onClick)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(width, height)
-    local bg = W.Fill(b, { 1, 0.82, 0.30, 0.08 })
+    local bg = W.Fill(b, C.buttonBg)
     W.Outline(b, C.controlBorder)
     local fs = W.Text(b, S.font, C.gold)
     fs:SetPoint("CENTER", 0, 0)
     fs:SetText(text)
-    b:SetScript("OnEnter", function() b:SetOutlineColor(unpack(C.gold)); bg:SetColorTexture(1, 0.82, 0.30, 0.16) end)
-    b:SetScript("OnLeave", function() b:SetOutlineColor(unpack(C.controlBorder)); bg:SetColorTexture(1, 0.82, 0.30, 0.08) end)
+    b:SetScript("OnEnter", function() b:SetOutlineColor(unpack(C.gold)); bg:SetColorTexture(unpack(C.buttonHover)) end)
+    b:SetScript("OnLeave", function() b:SetOutlineColor(unpack(C.controlBorder)); bg:SetColorTexture(unpack(C.buttonBg)) end)
     b:SetScript("OnMouseDown", function() fs:SetPoint("CENTER", 1, -1) end)
     b:SetScript("OnMouseUp", function() fs:SetPoint("CENTER", 0, 0) end)
     b:SetScript("OnClick", onClick)

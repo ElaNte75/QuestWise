@@ -43,7 +43,8 @@ function W.ScrollPage(content, o)
 
     local function paint()
         if barHover or thumbHover or dragging then
-            tex:SetColorTexture(1, 0.82, 0.30, 0.9)
+            local g = W.colors.gold -- the preset's accent colour
+            tex:SetColorTexture(g[1], g[2], g[3], 0.9)
         else
             tex:SetColorTexture(1, 1, 1, 0.14)
         end

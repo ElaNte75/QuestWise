@@ -23,11 +23,11 @@ local function navButton(parent, label)
     b.bg = W.Fill(b, C.selectedBg)
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints()
-    hl:SetColorTexture(unpack(C.hover))
+    W.Paint(hl, C.hover)
     b.accent = b:CreateTexture(nil, "ARTWORK")
     b.accent:SetPoint("TOPLEFT"); b.accent:SetPoint("BOTTOMLEFT")
     b.accent:SetWidth(2)
-    b.accent:SetColorTexture(unpack(C.gold))
+    W.Paint(b.accent, C.gold)
     b.text = W.Text(b, W.size.font, C.text)
     b.text:SetPoint("LEFT", 16, 0)
     b.text:SetText(label)
@@ -104,9 +104,12 @@ local function build()
     frameBorder:SetAllPoints()
     frameBorder:SetFrameLevel(f:GetFrameLevel() + 20)
     W.Outline(frameBorder, C.border)
+    f.frameBorder = frameBorder
+    -- presets with a game border picture draw it around the window (UI/Theme.lua)
+    f.edge = NA.Theme and NA.Theme.Edge(f, 25)
     local function line(a1, rel, a2, w, h)
         local t = frameBorder:CreateTexture(nil, "ARTWORK")
-        t:SetColorTexture(unpack(C.divider))
+        W.Paint(t, C.divider)
         t:SetPoint(a1, rel, a2, 0, 0)
         if w then t:SetSize(w, 1) else t:SetSize(1, h) end
     end
@@ -140,7 +143,19 @@ local function build()
 
         nb:SetScript("OnClick", function() Opt.SelectPage(key) end)
     end
+    Opt.frame = f
+    Opt.ApplyTheme()
     return f
+end
+
+-- the look preset changed (UI/Theme.lua has already repainted the colours): game border or 1 px line,
+-- and re-read the open page so selected items get their colours back
+function Opt.ApplyTheme()
+    local f = Opt.frame
+    if not f then return end
+    local framed = f.edge and f.edge:Refresh(true)
+    if framed then f.frameBorder:SetOutlineColor(0, 0, 0, 0) end
+    if Opt.current and f.navButtons[Opt.current] then Opt.SelectPage(Opt.current) end
 end
 
 function Opt.SelectPage(key)

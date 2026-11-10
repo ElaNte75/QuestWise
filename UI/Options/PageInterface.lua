@@ -18,6 +18,14 @@ NA.Options.AddPage("interface", "Interface", function(parent)
 
     st:Add(W.PageHeader(parent, "Interface", "Where the quest list sits and how it looks."), "header")
 
+    -- look preset (colours + frames of the list background, the details window and this window)
+    st:Add(W.Section(parent, "Look"), "section")
+    local lookRow = st:Add(W.Row(parent, "Preset"), "row")
+    add(lookRow:SetControl(W.Dropdown(lookRow, NA.Theme.PRESETS,
+        function() return NA.Theme.Current().key end,
+        function(key) NA.Theme.Set(key) end)))
+    st:Add(W.Note(parent, "Colours and frames of the quest list background, the quest details window and this window."), "note")
+
     -- position
     st:Add(W.Section(parent, "Position"), "section")
     st:Add(add(W.Checkbox(parent, "Lock the list in place",
@@ -68,13 +76,14 @@ NA.Options.AddPage("interface", "Interface", function(parent)
 
     -- background
     st:Add(W.Section(parent, "Background"), "section")
-    local opacityRow
+    local opacityRow, frameCheck
     st:Add(add(W.Checkbox(parent, "Show a background",
         "Draws a dark panel behind the quest list so it is easier to read.",
         function() return NA.db.listBackground and true or false end,
         function(v)
             NA.db.listBackground = v
             if opacityRow then W.SetActive(opacityRow, v) end
+            if frameCheck then W.SetActive(frameCheck, v) end
             L.ApplyLook()
         end)), "row")
 
@@ -82,9 +91,14 @@ NA.Options.AddPage("interface", "Interface", function(parent)
     add(opacityRow:SetControl(W.Slider(opacityRow, 10, 100, 10, "%",
         function() return NA.db.listOpacity or 60 end,
         function(v) NA.db.listOpacity = v; L.ApplyLook() end)))
+    frameCheck = st:Add(add(W.Checkbox(parent, "Show a frame around the list",
+        "Draws the frame of the look preset around the list's background. Only the GearQuest and Stone presets have a frame. The other windows always use the preset's frame.",
+        function() return NA.db.listFrame ~= false end,
+        function(v) NA.db.listFrame = v; L.ApplyLook() end)), "sub")
 
     return function()
         for _, r in ipairs(refreshers) do r() end
         W.SetActive(opacityRow, NA.db.listBackground and true or false)
+        W.SetActive(frameCheck, NA.db.listBackground and true or false)
     end
 end)

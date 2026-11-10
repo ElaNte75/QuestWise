@@ -54,5 +54,4 @@ end
 
 function Actions.HideTooltip()
     if NA.QuestInfo then return NA.QuestInfo.Hide() end
-    GameTooltip:Hide()
 end

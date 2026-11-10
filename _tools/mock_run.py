@@ -12,6 +12,8 @@ mock = r'''
 -- Minimal fake WoW environment: every frame/texture/fontstring accepts any method.
 local timers = {}
 unpack = unpack or table.unpack
+do local tn = tonumber
+   tonumber = function(...) if select("#", ...) > 1 and select(2, ...) == nil then error("bad argument #2 to 'tonumber' (base out of range)") end return tn(...) end end
 local function newObj(kind)
     local o = { _kind = kind, _shown = true, _text = "", _w = 100, _h = 20 }
     local mt = {}
@@ -504,6 +506,29 @@ function(env)
     NA.db.focusedFirst = false; NA.Tracker.Refresh(); local ff3 = tostring(firstID()); NA.db.focusedFirst = nil
     C_QuestLog.GetQuestTagInfo = function(id) if id == 2 then return { tagID = 81, tagName = "Dungeon" } end return nil end
     out[#out+1] = "focused first (want 1, 1 even as dungeon, off->not 1): " .. ff1 .. ", " .. ff2 .. ", " .. ff3
+    -- a focus of yours while the distances are unknown is still yours (was missed - user report)
+    local realGet = NA.MapInfo.Get
+    NA.MapInfo.Get = function() return { ok = false } end
+    _G.mockFocus = 3; NA.Tracker.Refresh()
+    local mf = tostring(NA.AutoFocus.ManualID()) .. "/" .. tostring(firstID())
+    NA.MapInfo.Get = realGet; NA.Tracker.Refresh()
+    mf = mf .. "/" .. tostring(NA.AutoFocus.ManualID())
+    out[#out+1] = "manual focus with no distances (want 3/3/3): " .. mf
+    -- inside a dungeon: only its quests even with the skull off (user report); option off = filters as usual
+    local all = NA.Tracker.allQuests
+    local dz = "Ragefire Chasm"
+    local oldZ1, oldZ2 = all[1].zone, all[2].zone
+    all[1].zone, all[2].zone = dz, dz
+    local nIn = 2
+    IsInInstance = function() return true, "party" end
+    GetInstanceInfo = function() return dz end
+    NA.Filters.SetEnabled(NA.DungeonFilter, false)
+    local v1 = NA.Filters.Apply(all); local n1 = #v1 .. "/" .. tostring(NA.Filters.narrowed)
+    NA.db.dungeonOnlyInside = false
+    local v2 = NA.Filters.Apply(all); local n2 = tostring(NA.Filters.narrowed)
+    NA.db.dungeonOnlyInside = nil; NA.Filters.SetEnabled(NA.DungeonFilter, true)
+    IsInInstance = nil; GetInstanceInfo = nil; all[1].zone, all[2].zone = oldZ1, oldZ2
+    out[#out+1] = "dungeon only inside, skull off (want " .. nIn .. "/true, off->false): " .. n1 .. ", " .. n2
     out[#out+1] = "dungeon filter (want hidden/true, inside shown, off shown): " .. dg1 .. ", " .. dg2 .. ", " .. dg3
     -- a mob's tooltip refilled without its unit (seen in game) must not show the label
     local realUE = UnitExists; UnitExists = function() return false end
@@ -515,6 +540,93 @@ function(env)
     UnitExists = realUE
     out[#out+1] = "object label after a mob tooltip (want false): " .. op3
     out[#out+1] = "object progress (want 7/8, 8/8 done=true): " .. op1 .. ", " .. tostring(op2) .. " done=" .. tostring(op2d)
+    -- quest details window ("i" button), rewards, mouse-over box off
+    GetNumQuestLogChoices = function() return 2 end
+    GetQuestLogChoiceInfo = function(i) return "Choice " .. i, "icon" .. i, 1, 3, true end
+    GetNumQuestLogRewards = function() return 1 end
+    GetQuestLogRewardInfo = function(i) return "Reward", "iconR", 5, 1, true end
+    GetQuestLogRewardMoney = function() return 12345 end
+    GetQuestLogRewardXP = function() return 850 end
+    GetQuestLogItemLink = function(k, i) return "|Hitem:1|h[" .. k .. i .. "]|h" end
+    local selected = {}
+    SelectQuestLogEntry = function(i) selected[#selected + 1] = i end
+    GetQuestLogSelection = function() return 7 end
+    NA.Tracker.Refresh()
+    local QIW = NA.QuestInfoWindow
+    local b1 = NA.Tracker.section.blocks[1]
+    b1.info:GetScript("OnClick")(b1.info)
+    local w1 = tostring(QIW.ShownID() == b1.questID)
+    QIW.Refresh()
+    local wt = {}
+    for _, fs in ipairs(QIW.pools.heads) do if fs.fs:IsShown() then wt[#wt+1] = "#" .. fs.fs:GetText() end end
+    for i = 1, QIW.pools.texts.used do wt[#wt+1] = QIW.pools.texts[i]:GetText() end
+    for i = 1, QIW.pools.tiles.used do wt[#wt+1] = "[" .. QIW.pools.tiles[i].name:GetText() .. "]" end
+    out[#out+1] = "details window: " .. table.concat(wt, " | ")
+    local sz1 = QuestWiseInfoWindow:GetWidth() .. "x" .. QuestWiseInfoWindow:GetHeight()
+    NA.db.questInfoWidth = 9999; NA.db.questInfoHeight = 300; QIW.Refresh()
+    local sz2 = QuestWiseInfoWindow:GetWidth() .. "x" .. QuestWiseInfoWindow:GetHeight()
+    NA.db.questInfoWidth, NA.db.questInfoHeight = nil, nil; QIW.Refresh()
+    out[#out+1] = "details window size (want 360x480, 560x300): " .. sz1 .. ", " .. sz2
+    out[#out+1] = "quest log selection put back (want ..,7): " .. table.concat(selected, ",")
+    b1.info:GetScript("OnClick")(b1.info); local w2 = tostring(QIW.ShownID())
+    local b2 = NA.Tracker.section.blocks[2]
+    b1.info:GetScript("OnClick")(b1.info); b2.info:GetScript("OnClick")(b2.info)
+    local w3 = tostring(QIW.ShownID() == b2.questID)
+    NA.db.questInfoRewards = false; QIW.Refresh(); local w4 = tostring(QIW.pools.tiles.used); NA.db.questInfoRewards = true
+    NA.db.questInfoScale = 500; NA.db.questInfoBackground = false; QIW.ApplyLook(); NA.db.questInfoScale = nil; NA.db.questInfoBackground = nil
+    NA.db.questInfoButton = false; NA.Tracker.Refresh(); local w5 = tostring(b1.info:IsShown()); NA.db.questInfoButton = true; NA.Tracker.Refresh()
+    b1.info:GetScript("OnClick")(b1.info); NA.db.questInfoEnabled = false; NA.Tracker.Refresh()
+    local en1 = tostring(b1.info:IsShown()) .. "/" .. tostring(NA.QuestInfo.HoverOn()); NA.db.questInfoEnabled = nil; NA.Tracker.Refresh()
+    out[#out+1] = "quest info disabled (want false/false): " .. en1
+    QIW.Hide()
+    out[#out+1] = "details window (want true/nil/true/0/false): " .. w1 .. "/" .. w2 .. "/" .. w3 .. "/" .. w4 .. "/" .. w5
+    local shown = 0; local oShow = GameTooltip.Show; GameTooltip.Show = function() shown = shown + 1 end
+    NA.db.questInfoHover = false; NA.Actions.ShowTooltip(b1.titleBtn, b1.quest); local hv1 = shown
+    NA.db.questInfoHover = true; NA.Actions.ShowTooltip(b1.titleBtn, b1.quest); local hv2 = shown
+    GameTooltip.Show = oShow
+    out[#out+1] = "mouse-over box (want 0 then 1): " .. hv1 .. " then " .. hv2
+    -- the game's quest area on the world map, painted in our colour
+    local paints, drawn = {}, {}
+    local pin = { SetFillTexture = function(_, p) paints[#paints+1] = p:match("[^%c]-([%w%-]+)$") end,
+                  DrawBlob = function(_, id) drawn[#drawn+1] = id end }
+    WorldMapFrame = CreateFrame("Frame")
+    WorldMapFrame.EnumeratePinsByTemplate = function() local done = false; return function() if not done then done = true; return pin end end end
+    _G.mockFocus = 2; NA.MapArea.Update(); NA.MapArea.Update()
+    NA.db.mapAreaColor = "Red"; NA.MapArea.Apply()
+    local fa, sc = {}, {}
+    pin.SetFillAlpha = function(_, v) fa[#fa+1] = v end
+    pin.SetBorderScalar = function(_, v) sc[#sc+1] = string.format("%.2f", v) end
+    NA.db.mapAreaOutline = true; NA.db.mapAreaThickness = 1; NA.MapArea.Update()
+    NA.db.mapAreaThickness = 99; NA.MapArea.Update(); NA.db.mapAreaOutline = nil; NA.db.mapAreaThickness = nil
+    out[#out+1] = "outline only (want fill 0,0 / thickness 0.04,0.20): " .. table.concat(fa, ",") .. " / " .. table.concat(sc, ",")
+    pin.SetFillAlpha, pin.SetBorderScalar = nil, nil
+    NA.db.mapArea = false; NA.MapArea.Apply(); NA.MapArea.Apply()
+    NA.db.mapArea = nil; NA.db.mapAreaColor = nil; WorldMapFrame = nil
+    out[#out+1] = "map area paints (want UI-StatusBar, REDGRAD64, UI-QuestBlob-Inside): " .. table.concat(paints, ", ") .. " | drawn " .. table.concat(drawn, ",")
+    -- options pages build
+    NA.Options.Open(); NA.Options.SelectPage("questinfo"); NA.Options.SelectPage("map"); NA.Options.frame:Hide()
+    -- minimap areas (UI/MinimapArea.lua): our inside colour, the game's back when off
+    local mmPics = {}
+    Minimap = { SetQuestBlobInsideTexture = function(_, f) mmPics[#mmPics+1] = (f:match("[^\\]+$")) end }
+    NA.db.mapAreaColor = "Red"; NA.MinimapArea.Update(true)
+    NA.db.mapMinimap = false; NA.MinimapArea.Update(); NA.MinimapArea.Update()
+    NA.db.mapMinimap = nil; NA.db.mapAreaColor = nil; Minimap = nil
+    out[#out+1] = "minimap area (want REDGRAD64, UI-QuestBlob-Inside): " .. table.concat(mmPics, ", ")
+    -- look presets (UI/Theme.lua): every preset with the options window, list background and details window shown
+    local te = #NA.errors
+    NA.Options.Open(); NA.Options.SelectPage("interface")
+    NA.db.listBackground = true
+    NA.QuestInfoWindow.Show(NA.Tracker.section.blocks[1].quest)
+    local golds = {}
+    for _, p in ipairs(NA.Theme.PRESETS) do
+        NA.Theme.Set(p.key)
+        golds[#golds+1] = p.key .. "=" .. string.format("%.2f", NA.Widgets.colors.gold[1])
+    end
+    NA.Theme.Set("Nope"); NA.Theme.Set("QuestWise")
+    golds[#golds+1] = "back=" .. string.format("%.2f", NA.Widgets.colors.gold[1]) .. "/" .. NA.db.theme
+    NA.QuestInfoWindow.Hide(); NA.db.listBackground = false; NA.ListLayout.ApplyLook(); NA.Options.frame:Hide()
+    out[#out+1] = "look presets (want QuestWise=1.00 GearQuest=0.90 Midnight=0.81 Forest=0.85 Game=1.00 back=1.00/QuestWise): "
+        .. table.concat(golds, " ") .. " new errors=" .. (#NA.errors - te)
     out[#out+1] = "errors=" .. tostring(#NA.errors)
     for _, e in ipairs(NA.errors) do out[#out+1] = e end
     -- click paths

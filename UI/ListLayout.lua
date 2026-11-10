@@ -132,9 +132,16 @@ function L.ApplyLook()
         L.titleBg:SetPoint("TOPLEFT", L.frame, "TOPLEFT", BG_LEFT, BG_TOP)
         L.titleBg:SetPoint("BOTTOMRIGHT", L.header, "BOTTOMRIGHT", BG_RIGHT, -TITLE_LINE)
     end
-    L.titleBg:SetColorTexture(0.012, 0.01, 0.008, math.min(1, a + 0.2))
+    -- colours of the look preset (UI/Theme.lua)
+    local look = NA.Theme and NA.Theme.Current().list or { bg = { 0.03, 0.025, 0.02 }, title = { 0.012, 0.01, 0.008 } }
+    local tc, bc = look.title, look.bg
+    L.titleBg:SetVertexColor(1, 1, 1, 1)
+    L.titleBg:SetColorTexture(tc[1], tc[2], tc[3], math.min(1, a + 0.2))
     L.bg:SetShown(on and not NA.db.collapsedAll)
-    L.bg:SetColorTexture(0.03, 0.025, 0.02, a)
+    if NA.Theme then NA.Theme.PaintPanel(L.bg, "listBg", bc, a) else L.bg:SetColorTexture(bc[1], bc[2], bc[3], a) end
+    -- presets with a game border picture frame the background (not while the list is folded)
+    -- (listFrame = your choice for the list only; the other windows always follow the preset)
+    if L.edge then L.edge:Refresh(on and not NA.db.collapsedAll and NA.db.listFrame ~= false) end
     local unlocked = not L.IsLocked()
     for _, e in ipairs(L.edges) do e:SetShown(unlocked) end
 end
@@ -204,6 +211,7 @@ function L.Setup(f, header)
     bg:SetPoint("TOPLEFT", header, "BOTTOMLEFT", BG_LEFT, -TITLE_LINE)
     bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", BG_RIGHT, -8)
     L.bg = bg
+    L.edge = NA.Theme and NA.Theme.Edge(f, 1, titleBg, bg)
 
     -- thin gold outline, visible only while the list is unlocked
     L.edges = {}

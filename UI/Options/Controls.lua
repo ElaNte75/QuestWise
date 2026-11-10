@@ -20,7 +20,7 @@ function W.Dropdown(parent, items, get, set, width)
     arrow:SetSize(14, 14)
     arrow:SetPoint("RIGHT", -5, -1)
     arrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
-    arrow:SetVertexColor(unpack(C.goldDim))
+    W.Tint(arrow, C.goldDim)
 
     -- popup list (above everything) and a click-catcher behind it
     local catcher = CreateFrame("Button", nil, UIParent)
@@ -31,7 +31,7 @@ function W.Dropdown(parent, items, get, set, width)
     local popup = CreateFrame("Frame", nil, UIParent)
     popup:SetFrameStrata("FULLSCREEN_DIALOG")
     popup:SetFrameLevel(20)
-    W.Fill(popup, { 0.06, 0.05, 0.04, 0.98 })
+    W.Fill(popup, C.popupBg)
     W.Outline(popup, C.border)
     popup:Hide()
     local columns = math.ceil(#items / PER_COLUMN)
@@ -48,7 +48,7 @@ function W.Dropdown(parent, items, get, set, width)
         row:SetPoint("TOPLEFT", 4 + col * COL_W, -4 - r * ROW_H)
         local hl = row:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints()
-        hl:SetColorTexture(unpack(C.hover))
+        W.Paint(hl, C.hover)
         row.sel = W.Fill(row, C.selectedBg)
         row.sel:Hide()
         row.text = W.Text(row, S.font, C.text)
@@ -115,7 +115,7 @@ function W.Slider(parent, min, max, step, suffix, get, set, onRelease, opts)
     track:SetHeight(4)
     track:SetPoint("LEFT", 0, 0)
     track:SetPoint("RIGHT", 0, 0)
-    track:SetColorTexture(unpack(C.track))
+    W.Paint(track, C.track)
 
     if opts.majorEvery then
         for v = min, max, opts.majorEvery do
@@ -128,19 +128,19 @@ function W.Slider(parent, min, max, step, suffix, get, set, onRelease, opts)
 
     local thumb = s:CreateTexture(nil, "OVERLAY")
     thumb:SetSize(8, 14)
-    thumb:SetColorTexture(unpack(C.gold))
+    W.Paint(thumb, C.gold)
     s:SetThumbTexture(thumb)
 
     local fill = s:CreateTexture(nil, "ARTWORK")
     fill:SetHeight(4)
     fill:SetPoint("LEFT", track, "LEFT", 0, 0)
     fill:SetPoint("RIGHT", thumb, "CENTER", 0, 0)
-    fill:SetColorTexture(C.goldDim[1], C.goldDim[2], C.goldDim[3], 0.75)
+    W.Paint(fill, C.sliderFill)
 
     local value = W.Text(s, S.font, C.gold)
     value:SetPoint("LEFT", s, "RIGHT", 12, 0)
 
-    s:SetScript("OnEnter", function() thumb:SetColorTexture(1, 0.92, 0.55, 1) end)
+    s:SetScript("OnEnter", function() thumb:SetColorTexture(unpack(C.thumbHover)) end)
     s:SetScript("OnLeave", function() thumb:SetColorTexture(unpack(C.gold)) end)
 
     local updating = false

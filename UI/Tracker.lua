@@ -55,8 +55,14 @@ function Tracker.Refresh()
     visible = NA.DistanceSort.Apply(visible)
     NA.SafeCall(NA.AutoFocus.Update, all) -- closest quest of this zone gets the focus (Quests/AutoFocus.lua)
     -- a quest you focused yourself: always shown, on top (Quests/FocusFirst.lua)
-    local okFF, ordered = NA.SafeCall(NA.FocusFirst.Apply, visible, all)
-    if okFF and ordered then visible = ordered end
+    -- (not inside a dungeon that shows only its own quests: then nothing else joins the list)
+    if not NA.Filters.narrowed then
+        local okFF, ordered = NA.SafeCall(NA.FocusFirst.Apply, visible, all)
+        if okFF and ordered then visible = ordered end
+    end
+    -- class quests: always shown, above everything (Quests/ClassQuests.lua)
+    local okCQ, withClass = NA.SafeCall(NA.ClassQuests.Apply, visible, all)
+    if okCQ and withClass then visible = withClass end
     Tracker.questCount = #visible
     Tracker.visibleTitles = {}
     for _, q in ipairs(visible) do Tracker.visibleTitles[q.title] = true end

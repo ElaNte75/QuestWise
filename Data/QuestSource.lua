@@ -7,6 +7,19 @@ NA.QuestSource = Source
 
 local READY_TEXT = "Ready for turn-in"
 
+-- the focused quest counts too even when it isn't tracked (you focused it on the map / in the log):
+-- Quests/FocusFirst.lua shows a quest you focused yourself on top of the list, whatever else
+local function withFocused(ids, seen)
+    local QL = C_QuestLog
+    if not (C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID) then return ids end
+    local ok, id = pcall(C_SuperTrack.GetSuperTrackedQuestID)
+    if ok and id and id ~= 0 and not seen[id] and QL.GetLogIndexForQuestID then
+        local i = QL.GetLogIndexForQuestID(id)
+        if i and i > 0 then ids[#ids + 1] = id end
+    end
+    return ids
+end
+
 local function trackedIDs()
     local ids = {}
     local seen = {}
@@ -16,16 +29,17 @@ local function trackedIDs()
             local id = QL.GetQuestIDForQuestWatchIndex(i)
             if id and not seen[id] then seen[id] = true; ids[#ids + 1] = id end
         end
-        if #ids > 0 then return ids end
+        if #ids > 0 then return withFocused(ids, seen) end
     end
     -- Fallback: walk the quest log and keep watched quests.
     for i = 1, QL.GetNumQuestLogEntries() or 0 do
         local info = QL.GetInfo(i)
         if info and not info.isHeader and info.questID and QL.GetQuestWatchType and QL.GetQuestWatchType(info.questID) then
             ids[#ids + 1] = info.questID
+            seen[info.questID] = true
         end
     end
-    return ids
+    return withFocused(ids, seen)
 end
 
 local function objectiveLines(questID)

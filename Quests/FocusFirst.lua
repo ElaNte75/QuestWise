@@ -1,6 +1,8 @@
 -- Quests: a quest YOU focused (on the map, in the quest log or in our list - not the automatic
 -- focus of Quests/AutoFocus.lua) is always in the list, whatever the filters say, and on top.
 -- Setting: focusedFirst (on). Called by UI/Tracker.lua after the filters and the sorting.
+-- Any other focus (the automatic one) is always in the list too, whatever the filters / yards say,
+-- in its usual place: you must see where you are being led (user decision 2026-11-10).
 local ADDON, NA = ...
 
 local FF = {}
@@ -29,10 +31,26 @@ function FF.ManualID()
 end
 
 -- visible: the list after filters + sorting; all: every tracked quest. Returns the new list.
-function FF.Apply(visible, all)
-    if not FF.IsOn() then return visible end
-    local id = FF.ManualID()
+local function withFocus(visible, all)
+    local id = focusedID()
     if not id then return visible end
+    for _, q in ipairs(visible) do
+        if q.questID == id then return visible end -- already shown
+    end
+    for _, q in ipairs(all) do
+        if q.questID == id then
+            local out = { q }
+            for _, x in ipairs(visible) do out[#out + 1] = x end
+            return NA.DistanceSort and NA.DistanceSort.Apply(out) or out
+        end
+    end
+    return visible
+end
+
+function FF.Apply(visible, all)
+    if not FF.IsOn() then return withFocus(visible, all) end
+    local id = FF.ManualID()
+    if not id then return withFocus(visible, all) end
     local quest
     for _, q in ipairs(all) do
         if q.questID == id then quest = q; break end

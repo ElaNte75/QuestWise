@@ -11,6 +11,7 @@ local TEXT_WIDTH = 230.83
 local DASH_WIDTH = 9.17
 local TITLE_GAP = 4
 local LINE_GAP = 2
+local INFO_W = 17 -- room for the "i" button (quest details window) before the title
 
 local function styleText(fs, justifyV)
     fs:SetFont(FONT, 12, "")
@@ -86,6 +87,35 @@ function Block.New(parent)
     self.ring = ring
     self.disc = disc
 
+    -- "i" button: opens / closes the quest details window (UI/QuestInfoWindow.lua)
+    local info = CreateFrame("Button", nil, f)
+    info:SetSize(15, 15)
+    info:SetPoint("TOPLEFT", f, "TOPLEFT", -1, 1)
+    local infoGlow = info:CreateTexture(nil, "BACKGROUND")
+    infoGlow:SetSize(26, 26)
+    infoGlow:SetPoint("CENTER")
+    NA.SetAtlas(infoGlow, "UI-QuestPoi-OuterGlow")
+    infoGlow:Hide()
+    local infoIcon = info:CreateTexture(nil, "ARTWORK")
+    infoIcon:SetPoint("TOPLEFT", -3, 3)
+    infoIcon:SetPoint("BOTTOMRIGHT", 3, -3)
+    infoIcon:SetTexture("Interface\\common\\help-i")
+    self.info, self.infoIcon, self.infoGlow = info, infoIcon, infoGlow
+    info:SetScript("OnClick", function()
+        if NA.QuestInfoWindow then NA.QuestInfoWindow.Toggle(self.quest) end
+    end)
+    info:SetScript("OnEnter", function()
+        infoIcon:SetVertexColor(1, 1, 1)
+        GameTooltip:SetOwner(info, "ANCHOR_LEFT")
+        GameTooltip:AddLine("Quest details", 1, 0.82, 0)
+        GameTooltip:AddLine("Click to open or close a window with what to do and the rewards.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    info:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+        self:PaintInfo()
+    end)
+
     local function onClick(_, button)
         if NA.Actions then NA.Actions.OnClick(self.questID, button) end
     end
@@ -107,6 +137,13 @@ function Block.New(parent)
     poi:SetScript("OnLeave", onLeave)
 
     return self
+end
+
+-- the "i" button: bright + glow while the window shows this quest, a little dim otherwise
+function Block:PaintInfo()
+    local open = NA.QuestInfoWindow and NA.QuestInfoWindow.ShownID() == self.questID
+    self.infoGlow:SetShown(open and true or false)
+    if open then self.infoIcon:SetVertexColor(1, 1, 1) else self.infoIcon:SetVertexColor(0.72, 0.72, 0.72) end
 end
 
 -- width = how wide the block's text area is (the list width minus the left margin)
@@ -133,7 +170,13 @@ function Block:SetData(q, width)
         self.itemSlot:Clear()
     end
     self.hasItem = item ~= nil
-    local availW = width - (item and (NA.QuestItemButton.SIZE + 4) or 0)
+    local infoOn = NA.QuestInfoWindow and NA.QuestInfoWindow.ButtonOn()
+    local indent = infoOn and INFO_W or 0
+    self.info:SetShown(infoOn and true or false)
+    self:PaintInfo()
+    local availW = width - (item and (NA.QuestItemButton.SIZE + 4) or 0) - indent
+    self.title:ClearAllPoints()
+    self.title:SetPoint("TOPLEFT", self.frame, "TOPLEFT", indent, 0)
     self.title:SetWidth(availW)
 
     -- text size from the options (title and objective lines use the same size)
@@ -141,6 +184,9 @@ function Block:SetData(q, width)
     local dashW = DASH_WIDTH * fsz / 12
     self.title:SetFont(FONT, fsz, "")
     local label = q.level and string.format("[%d] %s", q.level, q.title) or q.title
+    if NA.ClassQuests and NA.ClassQuests.IsClassQuest(q) then
+        label = label .. " |cffff4040(Important)|r" -- class quest (Quests/ClassQuests.lua)
+    end
     self.title:SetText(label)
     -- colour by difficulty (UI/QuestColor.lua); ready to turn in / option off = gold
     self.titleColor = NA.QuestColor and NA.QuestColor.For(q) or { 1, 0.82, 0 }
@@ -182,8 +228,8 @@ function Block:SetData(q, width)
             self.lines[i] = line
         end
         line:ClearAllPoints()
-        line:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, y)
-        line:SetWidth(width)
+        line:SetPoint("TOPLEFT", self.frame, "TOPLEFT", indent, y)
+        line:SetWidth(width - indent)
         line:Show()
 
         local text = line.text

@@ -225,6 +225,8 @@ local function styleMark(o, unit, quests, titles)
     end
 end
 
+local DRAGON_ROOM = 22 -- px left of the bar for elite / rare mobs (the game's dragon sits there)
+
 local function showMark(plate, unit, quests, titles)
     local o = getOverlay(plate)
     styleMark(o, unit, quests, titles)
@@ -238,9 +240,13 @@ local function showMark(plate, unit, quests, titles)
         o.icon:SetPoint("RIGHT", o.name, "LEFT", -3, 0)
     else
         o.name:Hide()
-        -- the level badge sits on the right of the bar, so the mark goes on the left
+        -- the level badge sits on the right of the bar, so the mark goes on the left; elite / rare
+        -- mobs have the game's silver or gold dragon there, so the mark moves further left (user report)
         local uf = plate.UnitFrame
-        o.icon:SetPoint("RIGHT", healthBarOf(uf) or uf or plate, "LEFT", -3, 0)
+        local x = -3
+        local ok, kind = pcall(UnitClassification, unit)
+        if ok and (kind == "elite" or kind == "rare" or kind == "rareelite" or kind == "worldboss") then x = -DRAGON_ROOM end
+        o.icon:SetPoint("RIGHT", healthBarOf(uf) or uf or plate, "LEFT", x, 0)
     end
     o.icon:Show()
 end

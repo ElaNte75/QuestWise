@@ -19,6 +19,7 @@ local lastSet      -- quest ID we focused last (nil = we haven't focused anythin
 local manualID     -- quest the player focused by hand (0 = player cleared the focus)
 local manualDone   -- was that quest already ready to turn in when the player chose it?
 local clearedNear  -- closest quest at the moment the player cleared the focus
+local lastSeen     -- the focus as it was at the previous check (any change we didn't make = the player's)
 
 local function focusedID()
     if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
@@ -36,6 +37,7 @@ end
 
 local function reset()
     lastSet, manualID, clearedNear, manualDone = nil, nil, nil, nil
+    lastSeen = nil
 end
 
 -- works with any filter (zone, distance or none) - user decision
@@ -78,17 +80,21 @@ end
 
 function AF.Update(visible) -- visible = ALL tracked quests (not only those the list shows)
     if not AF.IsOn() then reset(); return end
-    local ctx = NA.MapInfo.Get()
-    if not ctx.ok or not ctx.distOK then return end
 
+    -- the focus changed and it wasn't us: the player chose (or cleared) it.
+    -- Checked BEFORE anything else (also when distances are unknown), and also before we ever set a
+    -- focus ourselves (before, a focus of yours was missed then - user report: not on top of the list)
     local cur = focusedID()
-    -- the focus changed and it wasn't us: the player chose (or cleared) it
-    if lastSet ~= nil and cur ~= lastSet then
+    if lastSeen ~= nil and cur ~= lastSeen and cur ~= lastSet then
         manualID = cur
         lastSet = cur
         clearedNear = nil
         manualDone = nil
     end
+    lastSeen = cur
+
+    local ctx = NA.MapInfo.Get()
+    if not ctx.ok or not ctx.distOK then return end
 
     local near, nearD = nearest(visible, ctx)
     local byID = {}
@@ -121,4 +127,5 @@ function AF.Update(visible) -- visible = ALL tracked quests (not only those the 
         if curD and curD - nearD < SWITCH_MARGIN then return end
     end
     setFocus(near.questID)
+    lastSeen = near.questID
 end

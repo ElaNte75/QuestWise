@@ -59,7 +59,7 @@ local DEFS = {
         isOn = function() local f = filterById("dungeon"); return f ~= nil and NA.Filters.IsEnabled(f) end,
         toggle = function() local f = filterById("dungeon"); if f then NA.Filters.Toggle(f) end end,
         tip = function(on)
-            return "Hide dungeon quests", on and "On: dungeon quests are hidden until you are inside the dungeon. Click to show them." or "Off: dungeon quests are shown everywhere. Click to hide them outside dungeons."
+            return "Hide dungeon quests", on and "On: dungeon quests are hidden while you are outside the dungeon. Click to show them." or "Off: dungeon quests are shown everywhere. Click to hide them outside dungeons."
         end,
     },
 }

@@ -69,6 +69,12 @@ local function questTitle(id)
     return ""
 end
 
+local function inDungeon()
+    if type(IsInInstance) ~= "function" then return false end
+    local ok, inside, kind = pcall(IsInInstance)
+    return ok and inside and (kind == "party" or kind == "raid") or false
+end
+
 local function facing()
     if not GetPlayerFacing then return nil end
     local ok, f = pcall(GetPlayerFacing)
@@ -208,6 +214,7 @@ function A.Update()
     if NA.ArrowCombat and NA.ArrowCombat.IsHiding() then f:Hide(); return end
     -- flying / in a major city: hidden - Quests/Quiet.lua
     if NA.Quiet and NA.Quiet.Arrow() then f:Hide(); return end
+    if inDungeon() then f:Hide(); return end -- never inside a dungeon / raid, not even for your own focus
 
     local id = focusedID()
     if not id then return hide() end

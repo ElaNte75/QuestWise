@@ -25,7 +25,7 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         function() return NA.db.sortByDistance end,
         function(v) NA.db.sortByDistance = v; changed() end)), "row")
     st:Add(add(W.Checkbox(parent, "Manual focus on top",
-        "A quest you focus yourself (on the map, in the quest log or here) is always in the list, on top, whatever the filters say. The automatic focus doesn't move quests.",
+        "A quest you focus yourself (on the map, in the quest log or here) is always in the list, on top, whatever the filters say. A quest the automatic focus picks is always in the list too (in its usual place), even beyond the distance.",
         function() return NA.db.focusedFirst ~= false end,
         function(v) NA.db.focusedFirst = v; changed() end)), "row")
 
@@ -58,9 +58,13 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
 
     local dungeon = filterById("dungeon")
     st:Add(add(W.Checkbox(parent, "Hide dungeon quests",
-        "Quests the game marks as dungeon or raid quests are hidden while you are outside, and get no focus or arrow by themselves. Inside a dungeon they all show. A dungeon quest the game doesn't mark stays in the list.",
+        "Quests the game marks as dungeon or raid quests are hidden while you are outside, and get no focus or arrow by themselves. Inside a dungeon they show (see below). A dungeon quest the game doesn't mark stays in the list.",
         function() return NA.Filters.IsEnabled(dungeon) end,
         function(v) NA.Filters.SetEnabled(dungeon, v); changed() end)), "row")
+    st:Add(add(W.Checkbox(parent, "Inside a dungeon, only its quests",
+        "Inside a dungeon or raid the list shows only that dungeon's quests, whatever the other filters and buttons say. Unticked: inside, the list works with your filters as usual.",
+        function() return NA.db.dungeonOnlyInside ~= false end,
+        function(v) NA.db.dungeonOnlyInside = v; changed() end)), "row")
 
     focusCheck = st:Add(add(W.Checkbox(parent, "Focus the nearest quest",
         "The closest quest of your zone gets the focus by itself (yellow circle, map, arrow), whatever filter is on, even if it is farther than the distance above. Only quests still to be done count; when all are ready to turn in, the closest turn-in. A quest you focus yourself stays focused until it is done.",

@@ -33,11 +33,12 @@ NA.Options.AddPage("arrow", "Arrow", function(parent)
         if corpseRow then W.SetActive(corpseRow, on and Corpse.IsOn()) end
     end
 
-    st:Add(W.Section(parent, "Arrow"), "section")
-    st:Add(add(W.Checkbox(parent, "Show an arrow to the focused quest",
-        "An arrow on screen points toward the focused quest (the one you clicked, or the one focused by itself), with the distance and its name. It points at the middle of the quest's area and hides when you get there. Not shown in dungeons.",
+    st:Add(add(W.Checkbox(parent, "Enable the arrow",
+        "Ticked: an arrow on screen points toward the focused quest (the one you clicked, or the one focused by itself), with the distance and its name. Unticked: no arrow at all, and everything below is unused. Also the arrow button on the list's title.",
         function() return Arrow.IsOn() end,
         function(v) NA.db.arrowEnabled = v; refreshArrow(); Arrow.Update() end)), "row")
+
+    st:Add(W.Section(parent, "Arrow"), "section")
     arriveRow = st:Add(W.Row(parent, "Hide within"), "sub")
     add(arriveRow:SetControl(W.Slider(arriveRow, 10, 150, 5, " yd",
         function() return Arrow.ArriveYards() end,
