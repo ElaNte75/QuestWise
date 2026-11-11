@@ -25,18 +25,20 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         function() return NA.db.sortByDistance end,
         function(v) NA.db.sortByDistance = v; changed() end)), "row")
     st:Add(add(W.Checkbox(parent, "Manual focus on top",
-        "A quest you focus yourself (on the map, in the quest log or here) is always in the list, on top, whatever the filters say. A quest the automatic focus picks is always in the list too (in its usual place), even beyond the distance.",
+        "A quest you focus yourself (on the map, in the quest log or here) is always in the list, on top, whatever the filters say. A quest the automatic focus picks is always in the list too (in its usual place). Class quests stay above it.",
         function() return NA.db.focusedFirst ~= false end,
         function(v) NA.db.focusedFirst = v; changed() end)), "row")
 
     -- Zone and Distance exclude each other (one or the other, or neither)
     local zone = filterById("zone")
     local dist = filterById("distance")
-    local zoneCheck, distCheck, distRow, focusCheck
+    local zoneCheck, distCheck, distRow, focusCheck, rangeCheck
     local function refreshScope()
         if zoneCheck then zoneCheck.Refresh() end
         if distCheck then distCheck.Refresh() end
-        if distRow then W.SetActive(distRow, NA.Filters.IsEnabled(dist)) end
+        local autoOn = NA.db.autoFocusNearest ~= false
+        if rangeCheck then W.SetActive(rangeCheck, autoOn) end
+        if distRow then W.SetActive(distRow, NA.Filters.IsEnabled(dist) or (autoOn and NA.db.autoFocusInRange ~= false)) end
     end
 
     st:Add(W.Section(parent, "Filters"), "section")
@@ -62,14 +64,18 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         function() return NA.Filters.IsEnabled(dungeon) end,
         function(v) NA.Filters.SetEnabled(dungeon, v); changed() end)), "row")
     st:Add(add(W.Checkbox(parent, "Inside a dungeon, only its quests",
-        "Inside a dungeon or raid the list shows only that dungeon's quests, whatever the other filters and buttons say. Unticked: inside, the list works with your filters as usual.",
+        "Inside a dungeon, raid, battleground or scenario the list shows only its quests (also the ones you don't track), whatever the other filters and buttons say. None found = an empty list. Class quests stay on top. Unticked: inside, the list works with your filters as usual.",
         function() return NA.db.dungeonOnlyInside ~= false end,
         function(v) NA.db.dungeonOnlyInside = v; changed() end)), "row")
 
     focusCheck = st:Add(add(W.Checkbox(parent, "Focus the nearest quest",
-        "The closest quest of your zone gets the focus by itself (yellow circle, map, arrow), whatever filter is on, even if it is farther than the distance above. Only quests still to be done count; when all are ready to turn in, the closest turn-in. A quest you focus yourself stays focused until it is done.",
+        "The closest quest of your zone gets the focus by itself (yellow circle, map, arrow), whatever filter is on. Only quests still to be done count; when all are ready to turn in, the closest turn-in. A quest you focus yourself stays focused until it is done. Not while flying or in a major city.",
         function() return NA.db.autoFocusNearest ~= false end,
-        function(v) NA.db.autoFocusNearest = v; changed() end)), "row")
+        function(v) NA.db.autoFocusNearest = v; refreshScope(); changed() end)), "row")
+    rangeCheck = st:Add(add(W.Checkbox(parent, "Only within the distance",
+        "The automatic focus picks only quests within the Distance above (also when the distance filter is off). Nothing that close = no automatic focus until a quest comes within it. Unticked: the closest quest of the zone, however far.",
+        function() return NA.db.autoFocusInRange ~= false end,
+        function(v) NA.db.autoFocusInRange = v; refreshScope(); changed() end)), "sub")
 
     -- quest colours by difficulty (UI/QuestColor.lua)
     st:Add(W.Section(parent, "Difficulty colours"), "section")
@@ -117,11 +123,11 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
     end
     st:Add(W.Section(parent, "Stay quiet"), "section")
     st:Add(add(W.Checkbox(parent, "Quiet while flying",
-        "While you fly with a flight master: no marks on quest mobs, no sounds, no arrow, and the quest list folds up to its title (you can still open it). Back to normal when you land, unless you folded or opened the list yourself.",
+        "While you fly with a flight master: no marks on quest mobs, no sounds, no arrow, and the automatic focus stops, and the quest list folds up to its title (you can still open it). When you land, the list opens again as soon as it has quests to show.",
         function() return NA.db.quietFlying ~= false end,
         function(v) NA.db.quietFlying = v; quietChanged() end)), "row")
     st:Add(add(W.Checkbox(parent, "Quiet in major cities",
-        "In Stormwind, Ironforge, Darnassus, Orgrimmar, Thunder Bluff and Undercity: no marks on quest mobs, no sounds, no arrow, and the quest list folds up to its title (you can still open it). When you leave the city the list opens again, unless you folded or opened it yourself.",
+        "In Stormwind, Ironforge, Darnassus, Orgrimmar, Thunder Bluff and Undercity: no marks on quest mobs, no sounds, no arrow, and the automatic focus stops, and the quest list folds up to its title (you can still open it). When you leave the city, the list opens again as soon as it has quests to show.",
         function() return NA.db.quietCities ~= false end,
         function(v) NA.db.quietCities = v; quietChanged() end)), "row")
 

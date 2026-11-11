@@ -45,13 +45,14 @@ function Tracker.Refresh()
     Tracker.totalCount = #all
     NA.SafeCall(NA.CompleteSound.Check, all)
     local f = Tracker.frame
-    if #all == 0 then
+    local visible = NA.Filters.Apply(all)
+    -- (inside a dungeon / battleground the list shows, even empty: Data/DungeonFilter.lua)
+    if #all == 0 and not NA.Filters.narrowed then
         f:Hide()
         return
     end
     f:Show()
 
-    local visible = NA.Filters.Apply(all)
     visible = NA.DistanceSort.Apply(visible)
     NA.SafeCall(NA.AutoFocus.Update, all) -- closest quest of this zone gets the focus (Quests/AutoFocus.lua)
     -- a quest you focused yourself: always shown, on top (Quests/FocusFirst.lua)
@@ -64,6 +65,8 @@ function Tracker.Refresh()
     local okCQ, withClass = NA.SafeCall(NA.ClassQuests.Apply, visible, all)
     if okCQ and withClass then visible = withClass end
     Tracker.questCount = #visible
+    -- after a flight / leaving a city the list opens once it has something to show (Quests/Quiet.lua)
+    if NA.Quiet then NA.Quiet.AfterQuiet(#visible) end
     Tracker.visibleTitles = {}
     for _, q in ipairs(visible) do Tracker.visibleTitles[q.title] = true end
 
@@ -82,7 +85,7 @@ function Tracker.Refresh()
         f:SetHeight(HEADER_H)
     else
         Tracker.scroll:Show()
-        local h = Tracker.section:Refresh(visible, "No quests in this zone", w)
+        local h = Tracker.section:Refresh(visible, NA.Filters.narrowed and "No quests here" or "No quests in this zone", w)
         local viewH = math.min(h, math.max(L.MaxHeight() - HEADER_H - 6, 60))
         local fullW = w + L.PAD_LEFT + L.PAD_RIGHT
         Tracker.content:SetSize(fullW, h)

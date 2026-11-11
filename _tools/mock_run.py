@@ -234,13 +234,18 @@ function(env)
     local qf = tostring(NA.QuestMobMarker.IsQuestNear("Ghost Quest")) .. "/sound=" .. (soundCalls - sc0)
     NA.db.quietFlying = false; local qf2 = tostring(NA.QuestMobMarker.IsQuestNear("Ghost Quest")); NA.db.quietFlying = true
     NA.db.collapsedAll = false; NA.Quiet.Check(); local qfl = tostring(NA.db.collapsedAll)
-    flying = false; NA.Quiet.Check(); qfl = qfl .. "/" .. tostring(NA.db.collapsedAll)
+    local keepF = _G.mockFocus; _G.mockFocus = 0; NA.Tracker.Refresh(); _G.mockFocus = 0; NA.Tracker.Refresh()
+    out[#out+1] = "no auto focus while flying (want 0): " .. tostring(_G.mockFocus); _G.mockFocus = keepF; NA.Tracker.Refresh()
+    flying = false; NA.Quiet.Check(); NA.Tracker.Refresh(); qfl = qfl .. "/" .. tostring(NA.db.collapsedAll)
     out[#out+1] = "list folds while flying (want true/false): " .. qfl
+    -- landing with the list folded by hand before the flight: opens too (user decision 2026-11-11)
+    NA.db.collapsedAll = true; flying = true; NA.Quiet.Check(); flying = false; NA.Quiet.Check(); NA.Tracker.Refresh()
+    out[#out+1] = "landing opens a folded list (want false): " .. tostring(NA.db.collapsedAll)
     local realBest = C_Map.GetBestMapForUnit
     NA.db.collapsedAll = false
     C_Map.GetBestMapForUnit = function() return 1454 end; NA.Quiet.Check()
     local qc1 = tostring(NA.db.collapsedAll) .. "/" .. tostring(NA.Quiet.Mobs())
-    C_Map.GetBestMapForUnit = realBest; NA.Quiet.Check()
+    C_Map.GetBestMapForUnit = realBest; NA.Quiet.Check(); NA.Tracker.Refresh()
     local qc2 = tostring(NA.db.collapsedAll) .. "/" .. tostring(NA.Quiet.Mobs())
     C_Map.GetBestMapForUnit = function() return 1454 end; NA.Quiet.Check()
     NA.Tracker.header:GetScript("OnClick")(NA.Tracker.header)   -- opened by hand in the city
@@ -450,6 +455,13 @@ function(env)
     NA.db.autoFocusTurnIns = false; C_QuestLog.GetQuestsOnMap = oldMap; fresh()
     out[#out+1] = "turn-ins (want 2 then 1): " .. tostring(f6) .. " then " .. tostring(f7)
     out[#out+1] = "auto focus (want 2/3/0/3): " .. f1 .. "/" .. f2 .. "/" .. f3 .. "/" .. f4 .. " | beyond limit (want 2 or 0-cleared): " .. f5
+    do -- only within the distance: quest 2 is ~40 yd away. 30 yd = our focus goes away; option off = closest
+    NA.db.distanceYards = 1000; fresh(); local r1 = _G.mockFocus
+    NA.db.distanceYards = 30; NA.Tracker.Refresh(); local r2 = _G.mockFocus
+    NA.db.autoFocusInRange = false; NA.Tracker.Refresh(); local r3 = _G.mockFocus
+    NA.db.autoFocusInRange = nil; NA.db.distanceYards = 1000; NA.Tracker.Refresh()
+    out[#out+1] = "auto focus within the distance (want 2/0, off->2): " .. r1 .. "/" .. r2 .. ", " .. r3
+    end
     -- quick buttons on the title: arrow / distance / zone
     local HT = NA.HeaderToggles
     local function st() local z, d
@@ -496,7 +508,9 @@ function(env)
         return "hidden"
     end
     local dg1 = shows2() .. "/" .. tostring(NA.DungeonFilter.Hides(2))
+    NA.db.dungeonOnlyInside = false
     IsInInstance = function() return true, "party" end; local dg2 = shows2(); IsInInstance = nil
+    NA.db.dungeonOnlyInside = nil
     NA.Filters.SetEnabled(NA.DungeonFilter, false); local dg3 = shows2(); NA.Filters.SetEnabled(NA.DungeonFilter, true)
     C_QuestLog.GetQuestTagInfo = nil
     -- focused by hand: first in the list, even when a filter hides it
@@ -531,6 +545,39 @@ function(env)
     NA.db.dungeonOnlyInside = nil; NA.Filters.SetEnabled(NA.DungeonFilter, true)
     IsInInstance = nil; GetInstanceInfo = nil; all[1].zone, all[2].zone = oldZ1, oldZ2
     out[#out+1] = "dungeon only inside, skull off (want " .. nIn .. "/true, off->false): " .. n1 .. ", " .. n2
+    do -- inside: none of its quests = empty list; battleground counts; untracked quests of the place show
+    IsInInstance = function() return true, "pvp" end
+    GetInstanceInfo = function() return "Warsong Gulch" end
+    local e1 = #NA.Filters.Apply(all) .. "/" .. tostring(NA.Filters.narrowed)
+    local QL = C_QuestLog
+    local oN, oI, oW, oL = QL.GetNumQuestLogEntries, QL.GetInfo, QL.GetNumQuestWatches, QL.GetLogIndexForQuestID
+    local entries = { { isHeader = true, title = "Warsong Gulch" }, { questID = 1, title = "Dwarven Digging", level = 8 },
+                      { questID = 2, title = "Mazzranache", level = 8 }, { isHeader = true, title = "Mulgore" },
+                      { questID = 3, title = "Longwalker Malah", level = 9 } }
+    QL.GetNumQuestLogEntries = function() return #entries end
+    QL.GetInfo = function(i) return entries[i] end
+    QL.GetLogIndexForQuestID = function(id) for i, e in ipairs(entries) do if e.questID == id then return i end end end
+    QL.GetNumQuestWatches = function() return 1 end   -- only quest 1 tracked
+    NA.db.collapsedAll = false; NA.Tracker.Refresh()
+    local ids = {}; for _, b in ipairs(NA.Tracker.section.blocks) do if b.quest and b.frame:IsShown() then ids[#ids+1] = b.questID end end
+    local e2 = table.concat(ids, ",")
+    -- class quest: on top, above a quest you focused yourself, marked "(Class quest)"
+    entries = { { isHeader = true, title = "Mulgore" }, { questID = 1, title = "Dwarven Digging", level = 8 },
+                { questID = 2, title = "Mazzranache", level = 8 }, { isHeader = true, title = "Shaman" },
+                { questID = 3, title = "Longwalker Malah", level = 9 } }
+    QL.GetNumQuestWatches = oW
+    IsInInstance = nil; GetInstanceInfo = nil
+    local oUC = UnitClass; UnitClass = function() return "Shaman", "SHAMAN" end
+    local keepF = _G.mockFocus; _G.mockFocus = 2; NA.Tracker.Refresh(); NA.Tracker.Refresh()
+    local b1 = NA.Tracker.section.blocks[1]
+    local c1 = tostring(b1 and b1.questID) .. "/" .. tostring(NA.Tracker.section.blocks[2] and NA.Tracker.section.blocks[2].questID)
+        .. "/" .. tostring(b1 and b1.title:GetText() and b1.title:GetText():find("(Class quest)", 1, true) ~= nil)
+    UnitClass = oUC
+    out[#out+1] = "class quest on top of your focus (want 3/2/true): " .. c1
+    QL.GetNumQuestLogEntries, QL.GetInfo, QL.GetNumQuestWatches, QL.GetLogIndexForQuestID = oN, oI, oW, oL
+    _G.mockFocus = keepF; NA.Tracker.Refresh()
+    out[#out+1] = "inside, nothing of it (want 0/true): " .. e1 .. " | battleground with an untracked quest (want 1 and 2): " .. e2
+    end
     out[#out+1] = "dungeon filter (want hidden/true, inside shown, off shown): " .. dg1 .. ", " .. dg2 .. ", " .. dg3
     -- a mob's tooltip refilled without its unit (seen in game) must not show the label
     local realUE = UnitExists; UnitExists = function() return false end

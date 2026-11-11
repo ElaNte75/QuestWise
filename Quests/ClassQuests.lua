@@ -1,8 +1,8 @@
 -- Quests: class quests (the ones the quest log files under your class name, e.g. "Shaman").
 --   * tracked by themselves once, when they come into the quest log (if you untrack one
 --     afterwards, it is left alone)
---   * always in the list, whatever the filters say, and on top
---   * marked "Important" next to the title (UI/QuestBlock.lua)
+--   * always in the list, whatever the filters say, and on top - above your focus too
+--   * marked "(Class quest)" in your class colour next to the title (UI/QuestBlock.lua)
 -- They get no arrow by themselves: the automatic focus works as before.
 local ADDON, NA = ...
 

@@ -55,6 +55,7 @@ local defaults = {
     dungeonOnlyInside = true, -- inside a dungeon: only its quests, whatever the filters (Data/DungeonFilter.lua)
     focusedFirst = true,    -- a quest you focus yourself is always in the list, on top (Quests/FocusFirst.lua)
     autoFocusNearest = true, -- with "Only quests near me": the closest quest gets the focus
+    autoFocusInRange = true, -- ...only quests within the Distance (nothing near = no automatic focus)
     listLocked = true,       -- quest list can't be dragged (Interface page)
     listWidth = 260,         -- px, 200..500
     listMaxHeight = 1050,    -- px: the list grows with its quests up to this, then scrolls

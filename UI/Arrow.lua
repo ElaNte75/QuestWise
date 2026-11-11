@@ -69,10 +69,8 @@ local function questTitle(id)
     return ""
 end
 
-local function inDungeon()
-    if type(IsInInstance) ~= "function" then return false end
-    local ok, inside, kind = pcall(IsInInstance)
-    return ok and inside and (kind == "party" or kind == "raid") or false
+local function inDungeon() -- dungeon, raid, battleground, arena, scenario (Data/DungeonFilter.lua)
+    return NA.DungeonFilter ~= nil and NA.DungeonFilter.InInstance()
 end
 
 local function facing()

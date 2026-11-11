@@ -1,8 +1,14 @@
 # QuestWise — σημειώσεις project
 
-Τελευταία ενημέρωση: 2026-11-10, τέλος session 8 — ΟΛΑ έγιναν commit + push (sessions 6–8). Έγιναν: presets εμφάνισης (επιβεβαιωμένα), διακόπτης πλαισίου λίστας, focus με το χέρι πρώτο στη λίστα (επιβεβαιωμένο), το αυτόματο focus φαίνεται πάντα, minimap χρώμα + Hide other areas, dungeon = μόνο τα quest του μέσα, σημάδι πιο αριστερά στα elite/rare. Αδοκίμαστα: αυτόματο focus πάντα ορατό, σημάδι elite/rare, minimap με επικαλυπτόμενα quest. ΑΝΟΙΧΤΟ: μήνυμα «Your AddOns are experiencing a large number of errors» — `QuestWise_Debug/Watch_Errors.lua` περιμένει· όταν ο χρήστης το πει, διάβασε «lua error»/«blocked» στο log. Επόμενο session: ό,τι αναφέρει ο χρήστης.
+Τελευταία ενημέρωση: 2026-11-11, session 9 — commit + push στο `main` (με έγκριση χρήστη). Αντίγραφο ασφαλείας πριν τις αλλαγές: tag `backup-before-session9` στο GitHub. Βλ. «Κανόνες quest (session 9)». ΑΝΟΙΧΤΟ από πριν: μήνυμα «Your AddOns are experiencing a large number of errors» — `QuestWise_Debug/Watch_Errors.lua` περιμένει.
 Φάκελος εργασίας: `D:\Battlenet Games\World of Warcraft\_forever_\Interface\AddOns\QuestWise` (ΜΟΝΟ αυτός).
 GitHub: https://github.com/ElaNte75/QuestWise (δημόσιο, branch `main`). Απόφαση χρήστη 2026-11-07: ανεβαίνουν ΟΛΑ — και ήχοι, NOTES.md, AGENTS.md, `_tools`. Το debug ΔΕΝ είναι πια μέσα στο add-on (βλ. «Debug» παρακάτω).
+
+## Κανόνες quest (session 9, 2026-11-11 — αποφάσεις χρήστη, commit + push, mock ΟΚ, ΑΔΟΚΙΜΑΣΤΟ στο παιχνίδι)
+- Μέσα σε dungeon / raid / battleground / arena / scenario (`Data/DungeonFilter.lua`, `INSTANCE_KINDS`): μόνο τα quest του μέρους (κεφαλίδα quest log = όνομα instance), ΚΑΙ τα μη τσεκαρισμένα (`QuestSource.GetInLog`). Κανένα = ΑΔΕΙΑ λίστα «No quests here» (πριν γύριζε στα quest του έξω κόσμου). Διακόπτης: το υπάρχον `dungeonOnlyInside`.
+- Αυτόματο focus μόνο μέσα στις γιάρδες του Distance (`autoFocusInRange`, on· checkbox «Only within the distance»). Τίποτα κοντά = το ΔΙΚΟ ΜΑΣ focus σβήνει μέχρι να μπει quest στις γιάρδες· το focus με το χέρι δεν πειράζεται. Off = το πιο κοντινό της περιοχής (παλιά συμπεριφορά).
+- Class quests: πάντα πρώτα, πάνω και από το focus (χωρίς να παίρνουν focus)· γράφουν «(Class quest)» στο χρώμα της κλάσης (ήταν κόκκινο «(Important)»).
+- Ταξί / μεγάλες πόλεις: σταματά και το αυτόματο focus (κρατά ό,τι είχε). Μετά την προσγείωση / έξοδο η λίστα ανοίγει ΜΟΝΗ της όταν έχει quest (`Quiet.AfterQuiet` από `UI/Tracker.lua`), ακόμα κι αν ήταν μαζεμένη πριν την πτήση. Σειρά: class quest → focus με το χέρι → τα υπόλοιπα.
 
 ## Presets εμφάνισης (session 7, 2026-11-09 — ΧΩΡΙΣ commit, mock ΟΚ, ΑΔΟΚΙΜΑΣΤΟ στο παιχνίδι)
 Interface → Look → Preset (`theme`, προεπιλογή "QuestWise"). Απόφαση χρήστη: και τα 5:

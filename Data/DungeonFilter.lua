@@ -1,10 +1,10 @@
 -- Filter "Dungeon":
 --  * outside an instance: hides quests the game marks as dungeon (or raid) quests. Such quests
 --    also get no automatic focus (Quests/AutoFocus.lua). A dungeon quest the game doesn't mark stays shown.
---  * inside a dungeon / raid: the list shows only the quests filed under that dungeon's name in the
---    quest log, whatever the other filters (and this one) say - setting dungeonOnlyInside (on; user
---    decision: this switch was tied to the skull button, which was off - user report). Off = inside,
---    the list works with your filters as usual. If none is found, the list works as usual too.
+--  * inside a dungeon / raid / battleground / arena / scenario: the list shows only the quests filed
+--    under that place's name in the quest log - tracked or not - whatever the other filters (and this
+--    one) say - setting dungeonOnlyInside (on). None found = an empty list (user decision 2026-11-11).
+--    Off = inside, the list works with your filters as usual.
 local ADDON, NA = ...
 
 local DUNGEON_TAGS = { [81] = true, [62] = true, [88] = true, [89] = true } -- Dungeon, Raid, Raid (10), Raid (25)
@@ -12,11 +12,14 @@ local DUNGEON_TAGS = { [81] = true, [62] = true, [88] = true, [89] = true } -- D
 local Dungeon = { id = "dungeon", label = "Dungeon", default = true }
 NA.DungeonFilter = Dungeon
 
+local INSTANCE_KINDS = { party = true, raid = true, pvp = true, arena = true, scenario = true }
+
 local function inInstance()
     if type(IsInInstance) ~= "function" then return false end
     local ok, inside, kind = pcall(IsInInstance)
-    return ok and inside and (kind == "party" or kind == "raid") or false
+    return ok and inside and INSTANCE_KINDS[kind] == true or false
 end
+Dungeon.InInstance = inInstance
 
 -- names the current instance may go by (instance name and zone name)
 local function instanceNames()
@@ -43,17 +46,19 @@ function Dungeon.Hides(questID)
     return NA.Filters.IsEnabled(Dungeon) and not inInstance() and Dungeon.IsDungeonQuest(questID)
 end
 
--- inside a dungeon: only the quests of this dungeon (nil when outside or none found)
+-- inside: only the quests of this place, tracked ones first (nil when outside / option off)
 function Dungeon.OnlyInside() return NA.db.dungeonOnlyInside ~= false end
 
 function Dungeon.Narrow(quests)
     if not (Dungeon.OnlyInside() and inInstance()) then return nil end
     local names = instanceNames()
-    local only = {}
+    local only, seen = {}, {}
     for _, q in ipairs(quests) do
-        if q.zone and names[q.zone] then only[#only + 1] = q end
+        if q.zone and names[q.zone] then only[#only + 1] = q; seen[q.questID] = true end
     end
-    if #only == 0 then return nil end
+    for _, q in ipairs(NA.QuestSource.GetInLog(function(h) return names[h] == true end)) do
+        if not seen[q.questID] then only[#only + 1] = q; seen[q.questID] = true end
+    end
     return only
 end
 

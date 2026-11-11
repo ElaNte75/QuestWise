@@ -1,6 +1,9 @@
 -- Quests: the closest tracked quest of your zone gets the focus
--- (yellow circle / map highlight / arrow) by itself - WHATEVER the distance limit, so it also
--- picks quests the list hides. Quests of other zones have no distance here and never count.
+-- (yellow circle / map highlight / arrow) by itself - only within the distance you set (Quest list ->
+-- Distance), user decision 2026-11-11 (autoFocusInRange, on; off = the closest whatever the distance).
+-- Nothing within the distance = our focus is cleared until a quest comes within it.
+-- Quests of other zones have no distance here and never count.
+-- Flying with a flight master / in a major city (Quests/Quiet.lua): it does nothing.
 --   * only quests still to be done count; if all are ready to turn in, the closest turn-in
 --     (option autoFocusTurnIns: open and ready quests count the same - simply the closest)
 --   * a quest you focus yourself (ANY quest, also one ready to turn in) is kept until it is
@@ -50,6 +53,9 @@ function AF.IsOn()
     return NA.db.autoFocusNearest ~= false
 end
 
+function AF.InRangeOnly() return NA.db.autoFocusInRange ~= false end
+local function rangeYards() return NA.db.distanceYards or 500 end
+
 -- distance of a quest from you (nil = unknown): its spot on the map ONLY. A mob of a quest seen
 -- nearby does NOT count (it made the focus jump to another quest whose area overlaps - user report);
 -- the list still shows such a quest (Data/DistanceFilter.lua), only the focus ignores it.
@@ -65,6 +71,7 @@ local function nearest(visible, ctx)
     for _, q in ipairs(visible) do
         local d = distanceOf(q, ctx)
         if d and DF and DF.Hides(q.questID) then d = nil end -- dungeon quest while outside (Data/DungeonFilter.lua)
+        if d and AF.InRangeOnly() and d > rangeYards() then d = nil end -- beyond the distance you set
         if d then
             if q.isComplete then
                 if not bestDoneD or d < bestDoneD then bestDone, bestDoneD = q, d end
@@ -93,6 +100,8 @@ function AF.Update(visible) -- visible = ALL tracked quests (not only those the 
     end
     lastSeen = cur
 
+    if NA.Quiet and NA.Quiet.Mobs() then return end -- flying / major city: nothing changes
+
     local ctx = NA.MapInfo.Get()
     if not ctx.ok or not ctx.distOK then return end
 
@@ -117,14 +126,22 @@ function AF.Update(visible) -- visible = ALL tracked quests (not only those the 
         manualID, clearedNear = nil, nil
     end
 
-    if not near then return end
+    if not near then
+        -- nothing within the distance: our own focus goes away (yours is never touched here)
+        if AF.InRangeOnly() and cur ~= 0 and cur == lastSet then
+            setFocus(0)
+            lastSeen = 0
+        end
+        return
+    end
     if near.questID == cur then lastSet = cur; return end
 
     -- small hysteresis so two quests at about the same distance don't swap back and forth
     local curQ = byID[cur]
     if curQ and lastSet == cur and (NA.db.autoFocusTurnIns == true or curQ.isComplete == near.isComplete) then
         local curD = distanceOf(curQ, ctx)
-        if curD and curD - nearD < SWITCH_MARGIN then return end
+        local inRange = curD and not (AF.InRangeOnly() and curD > rangeYards())
+        if inRange and curD - nearD < SWITCH_MARGIN then return end
     end
     setFocus(near.questID)
     lastSeen = near.questID

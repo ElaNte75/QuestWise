@@ -96,6 +96,33 @@ local function zonesByQuest()
     return map
 end
 
+local function build(questID, logIndex, info, zone)
+    local QL = C_QuestLog
+    local title = (info and info.title) or (QL.GetTitleForQuestID and QL.GetTitleForQuestID(questID))
+    if not title then return nil end
+    local complete = QL.IsComplete and QL.IsComplete(questID) and true or false
+    local q = {
+        questID = questID,
+        title = title,
+        level = info and info.level,
+        zone = zone,
+        isComplete = complete,
+        item = specialItem(logIndex, complete),
+        lines = {},
+    }
+    if complete then
+        local text = completionText(logIndex)
+        q.lines[1] = { text = text or READY_TEXT, finished = false, plain = true, dim = (text == nil) }
+    else
+        q.lines = objectiveLines(questID)
+        if #q.lines == 0 then
+            local desc = objectiveDescription(logIndex)
+            if desc then q.lines[1] = { text = desc, finished = false, plain = true } end
+        end
+    end
+    return q
+end
+
 function Source.GetTracked()
     local result = {}
     local QL = C_QuestLog
@@ -103,29 +130,26 @@ function Source.GetTracked()
     for _, questID in ipairs(trackedIDs()) do
         local logIndex = QL.GetLogIndexForQuestID and QL.GetLogIndexForQuestID(questID)
         local info = logIndex and QL.GetInfo(logIndex)
-        local title = (info and info.title) or (QL.GetTitleForQuestID and QL.GetTitleForQuestID(questID))
-        if title then
-            local complete = QL.IsComplete and QL.IsComplete(questID) and true or false
-            local q = {
-                questID = questID,
-                title = title,
-                level = info and info.level,
-                zone = zones[questID],
-                isComplete = complete,
-                item = specialItem(logIndex, complete),
-                lines = {},
-            }
-            if complete then
-                local text = completionText(logIndex)
-                q.lines[1] = { text = text or READY_TEXT, finished = false, plain = true, dim = (text == nil) }
-            else
-                q.lines = objectiveLines(questID)
-                if #q.lines == 0 then
-                    local desc = objectiveDescription(logIndex)
-                    if desc then q.lines[1] = { text = desc, finished = false, plain = true } end
-                end
+        local q = build(questID, logIndex, info, zones[questID])
+        if q then result[#result + 1] = q end
+    end
+    return result
+end
+
+-- every quest in the quest log (tracked or not) whose header passes match(headerName)
+-- (Data/DungeonFilter.lua: all the quests of the dungeon / battleground you are in)
+function Source.GetInLog(match)
+    local result = {}
+    local QL = C_QuestLog
+    local header
+    for i = 1, QL.GetNumQuestLogEntries() or 0 do
+        local info = QL.GetInfo(i)
+        if info then
+            if info.isHeader then header = info.title
+            elseif info.questID and header and match(header) then
+                local q = build(info.questID, i, info, header)
+                if q then result[#result + 1] = q end
             end
-            result[#result + 1] = q
         end
     end
     return result

@@ -185,7 +185,7 @@ function Block:SetData(q, width)
     self.title:SetFont(FONT, fsz, "")
     local label = q.level and string.format("[%d] %s", q.level, q.title) or q.title
     if NA.ClassQuests and NA.ClassQuests.IsClassQuest(q) then
-        label = label .. " |cffff4040(Important)|r" -- class quest (Quests/ClassQuests.lua)
+        label = label .. " |c" .. NA.ClassQuests.ClassColorHex() .. "(Class quest)|r" -- Quests/ClassQuests.lua
     end
     self.title:SetText(label)
     -- colour by difficulty (UI/QuestColor.lua); ready to turn in / option off = gold

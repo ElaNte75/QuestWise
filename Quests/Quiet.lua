@@ -1,8 +1,11 @@
 -- Quests: "stay quiet" times - while flying (flight master) and inside the major cities.
 --   * flying (quietFlying): no quest-mob marks, no sounds, no arrow, and the list folds up like in a
 --     city (user decision 2026-11-10), opening again when you land
---   * major city (quietCities): the same, and the quest list folds up to its title; when you leave
---     the city it opens again (only if the city folded it - not if you folded it yourself)
+--   * major city (quietCities): the same, and the quest list folds up to its title
+--   * both: the automatic focus stops (Quests/AutoFocus.lua). When you land / leave the city the list
+--     opens again as soon as it has something to show (class quest, your focus, quests within the
+--     distance) - even if it was folded before (user decision 2026-11-11); folding it by hand after
+--     that keeps it folded.
 -- Mobs/QuestMobMarker.lua and UI/Arrow.lua ask Quiet.Mobs() / Quiet.Arrow().
 local ADDON, NA = ...
 
@@ -58,10 +61,10 @@ function Q.Mobs() return flyingQuiet() or cityQuiet() end
 -- no arrow right now
 function Q.Arrow() return flyingQuiet() or cityQuiet() end
 
--- the quest list folds up when you come into a city (or take a flight) and opens again when you leave
--- (quietCityFolded = "the quiet time folded it", for cities and flights alike)
+-- the quest list folds up when you come into a city (or take a flight) and opens again after it
 local wasCity = nil
 local wasQuiet = nil
+local expandPending = false
 
 local function refreshAll()
     if NA.QuestMobMarker and NA.QuestMobMarker.RequestRefresh then NA.QuestMobMarker.RequestRefresh() end
@@ -73,14 +76,12 @@ function Q.Check()
     local city = cityQuiet() or flyingQuiet()
     if city ~= wasCity then
         if city then
-            if not NA.db.collapsedAll then
-                NA.db.collapsedAll = true
-                NA.db.quietCityFolded = true
-            end
-        elseif NA.db.quietCityFolded then
-            NA.db.collapsedAll = false
-            NA.db.quietCityFolded = nil
+            NA.db.collapsedAll = true
+            expandPending = false
+        elseif wasCity == true or NA.db.quietCityFolded then
+            expandPending = true -- UI/Tracker.lua opens the list once it has quests (Q.AfterQuiet)
         end
+        NA.db.quietCityFolded = nil
         wasCity = city
         if NA.Tracker then NA.Tracker.RequestRefresh() end
     end
@@ -91,9 +92,17 @@ function Q.Check()
     end
 end
 
--- you folded / opened the list yourself: the city no longer opens it for you when you leave
+-- you folded / opened the list yourself: it is left as you set it
 function Q.ListToggledByHand()
     NA.db.quietCityFolded = nil
+    expandPending = false
+end
+
+-- called by UI/Tracker.lua with how many quests the list shows now
+function Q.AfterQuiet(count)
+    if not expandPending or count == 0 then return end
+    expandPending = false
+    NA.db.collapsedAll = false
 end
 
 NA.OnInit(function()

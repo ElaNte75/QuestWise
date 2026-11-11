@@ -60,13 +60,13 @@ function Filters.Apply(quests)
     end
 
     -- A filter may narrow the whole list on its own (Narrow(quests) -> list or nil), even when it is
-    -- switched off (it has its own setting); when it returns a non-empty list, that list is shown and
-    -- the other filters are skipped. Filters.narrowed tells the tracker (nothing else is added then).
+    -- switched off (it has its own setting); when it returns a list (even an empty one), that list is
+    -- shown and the other filters are skipped. Filters.narrowed tells the tracker (nothing else is added then).
     Filters.narrowed = false
     for _, f in ipairs(Filters.list) do
         if f.Narrow then
             local ok, only = NA.SafeCall(f.Narrow, quests)
-            if ok and type(only) == "table" and #only > 0 then
+            if ok and type(only) == "table" then
                 for id in pairs(stats) do stats[id] = #only end
                 Filters.narrowed = true
                 return only, stats
