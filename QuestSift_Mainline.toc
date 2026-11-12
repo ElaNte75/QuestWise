@@ -1,9 +1,10 @@
-## Interface: 16001
-## Title: QuestWise
+## Interface: 120107, 120105, 120100
+## Title: QuestSift
 ## Notes: Smarter quest list: filters, nearest quest first, quest mob marks, sounds.
 ## Version: 0.1.0
-## SavedVariables: QuestWiseDB
-## AddonCompartmentFunc: QuestWise_OnCompartmentClick
+## Author: Gchris
+## SavedVariables: QuestSiftDB
+## AddonCompartmentFunc: QuestSift_OnCompartmentClick
 ## IconTexture: Interface\Icons\INV_Misc_Note_01
 
 Core/Init.lua

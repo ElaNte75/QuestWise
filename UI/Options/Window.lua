@@ -44,7 +44,7 @@ local function build()
     local W = NA.Widgets
     local C = W.colors
 
-    local f = CreateFrame("Frame", "QuestWiseOptionsWindow", UIParent)
+    local f = CreateFrame("Frame", "QuestSiftOptionsWindow", UIParent)
     f:SetSize(WIDTH, HEIGHT)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
@@ -56,7 +56,7 @@ local function build()
     -- closing the window also hides the size preview of the Interface page
     f:HookScript("OnHide", function() if NA.ListLayout then NA.ListLayout.ShowPreview(false) end end)
     W.Fill(f, C.frameBg)
-    if UISpecialFrames then table.insert(UISpecialFrames, "QuestWiseOptionsWindow") end -- Esc closes it
+    if UISpecialFrames then table.insert(UISpecialFrames, "QuestSiftOptionsWindow") end -- Esc closes it
 
     -- title bar (drag here to move the window)
     local header = CreateFrame("Frame", nil, f)
@@ -70,7 +70,7 @@ local function build()
     W.Fill(header, C.headerBg)
     local title = W.Text(header, 16, C.gold)
     title:SetPoint("LEFT", PAD, 0)
-    title:SetText("QuestWise")
+    title:SetText("QuestSift")
     local accent = W.Text(header, 16, C.text)
     accent:SetPoint("LEFT", title, "RIGHT", 8, 0)
     accent:SetText("Options")
@@ -206,10 +206,10 @@ function Opt.Toggle()
     end
 end
 
--- /questwise or /qw opens the window (quiet: prints nothing)
-SLASH_QUESTWISE1 = "/questwise"
-SLASH_QUESTWISE2 = "/qw"
-SlashCmdList["QUESTWISE"] = function() Opt.Toggle() end
+-- /questsift or /qs opens the window (quiet: prints nothing)
+SLASH_QUESTSIFT1 = "/questsift"
+SLASH_QUESTSIFT2 = "/qs"
+SlashCmdList["QUESTSIFT"] = function() Opt.Toggle() end
 
 -- AddOn list button (top-right of the game's minimap area) entry points; see the .toc
-function QuestWise_OnCompartmentClick() Opt.Toggle() end
+function QuestSift_OnCompartmentClick() Opt.Toggle() end

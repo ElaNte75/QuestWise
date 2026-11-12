@@ -105,6 +105,7 @@ local function build(questID, logIndex, info, zone)
         questID = questID,
         title = title,
         level = info and info.level,
+        suggestedGroup = info and info.suggestedGroup,
         zone = zone,
         isComplete = complete,
         item = specialItem(logIndex, complete),

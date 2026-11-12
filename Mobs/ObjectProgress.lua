@@ -85,6 +85,16 @@ local unitTip = false
 -- names whose tooltip was ever a creature's: the game sometimes refills a mob's tooltip without the
 -- unit (seen in game: same lines, no unit, no tooltip data) - a name in here is never an object
 local unitNames = {}
+-- the mouse left the object: the game lets its tooltip fade out (FadeOut / alpha going down) while
+-- our label kept following the cursor (user report) - hidden from then on
+local fading = false
+OP.SetFading = function(v) fading = v and true or false end
+
+local function fadingOut(tt)
+    if fading then return true end
+    local ok, a = pcall(tt.GetAlpha, tt)
+    return ok and type(a) == "number" and a < 0.99
+end
 
 local function firstLine(tt)
     local fs = _G[tt:GetName() .. "TextLeft1"]
@@ -98,7 +108,7 @@ local function refresh(tt)
         unitTip = true
         if name then unitNames[name] = true end
     end
-    if not (OP.IsOn() and tt:IsShown()) or unitTip or (name and unitNames[name]) or quiet() or tt:GetItem() or not forWorld(tt) then
+    if not (OP.IsOn() and tt:IsShown()) or fadingOut(tt) or unitTip or (name and unitNames[name]) or quiet() or tt:GetItem() or not forWorld(tt) then
         if label then label:Hide() end
         return
     end
@@ -121,11 +131,15 @@ NA.OnInit(function()
     local tt = GameTooltip
     if not (tt and tt.HookScript) then return end
     tt:HookScript("OnShow", function(self)
-        elapsed = 0
+        elapsed = 0; fading = false
         C_Timer.After(0, function() NA.SafeCall(refresh, self) end) -- the lines are filled just after
     end)
     tt:HookScript("OnHide", function() unitTip = false; if label then label:Hide() end end)
-    pcall(tt.HookScript, tt, "OnTooltipCleared", function() unitTip = false end)
+    pcall(tt.HookScript, tt, "OnTooltipCleared", function() unitTip = false; fading = false end)
+    if hooksecurefunc then
+        pcall(hooksecurefunc, tt, "FadeOut", function() fading = true; if label then label:Hide() end end)
+        pcall(hooksecurefunc, tt, "SetOwner", function() fading = false end)
+    end
     pcall(tt.HookScript, tt, "OnTooltipSetUnit", function(self)
         unitTip = true
         local name = firstLine(self)
@@ -133,7 +147,9 @@ NA.OnInit(function()
         if label then label:Hide() end
     end)
     tt:HookScript("OnUpdate", function(self, dt)
-        if label and label:IsShown() then place(label) end
+        if label and label:IsShown() then
+            if fadingOut(self) then label:Hide() else place(label) end
+        end
         elapsed = elapsed + (dt or 0)
         if elapsed < READ_EVERY then return end
         elapsed = 0

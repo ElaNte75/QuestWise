@@ -3,7 +3,7 @@ import sys
 from lupa import LuaRuntime
 
 root = sys.argv[1]
-# the add-on's name = its folder name (New_Addon before the rename, QuestWise after)
+# the add-on's name = its folder name (New_Addon before the rename, QuestSift after)
 ADDON_NAME = os.path.basename(os.path.normpath(root))
 lua = LuaRuntime(unpack_returned_tuples=True)
 lua.globals().ADDON_NAME = ADDON_NAME
@@ -103,7 +103,7 @@ C_Map.GetPlayerMapPosition = function(id, unit) return { GetXY = function() retu
 C_QuestLog.GetQuestsOnMap = function(id) return { {questID = 1, x = 0.53, y = 0.5}, {questID = 2, x = 0.8, y = 0.5}, {questID = 3, x = 0.65, y = 0.5} } end
 GetTime = function() return os.clock() + 100 end
 GetZoneText = function() return "Mulgore" end
-QuestWiseProbeDB = {}
+QuestSiftProbeDB = {}
 GetQuestLogSpecialItemInfo = function(i) if i == 2 then return "|cff0070dd|Hitem:5555::::::::|h[Magic Stone]|h|r", "icon", 1, false end end
 GetItemCount = function() return 3 end
 C_Container = { GetItemCooldown = function() return 0, 0, 1 end }
@@ -129,6 +129,7 @@ files = [l.strip() for l in toc if l.strip() and not l.startswith("##") and not 
 for f in files:
     env.loadFile(root + "/" + f)
 
+lua.globals().MOCK_ROOT = root
 run = lua.eval(r'''
 function(env)
     -- fire ADDON_LOADED then PLAYER_LOGIN through the frame registered by Init
@@ -154,8 +155,8 @@ function(env)
         out[#out+1] = "block " .. i .. " h=" .. tostring(b.height) .. " title=" .. tostring(b.title:GetText()) .. " lines=" .. tostring(#b.quest.lines)
     end
     out[#out+1] = "total=" .. tostring(NA.Tracker.totalCount) .. " visible=" .. tostring(NA.Tracker.questCount)
-    for _, e in ipairs(QuestWiseProbeDB.zoneLog or {}) do for _, l in ipairs(e.quests) do out[#out+1] = "zonelog: " .. l end end
-    for _, e in ipairs(QuestWiseProbeDB.distLog or {}) do for _, l in ipairs(e.quests) do out[#out+1] = "distlog(" .. e.limit .. "): " .. l end end
+    for _, e in ipairs(QuestSiftProbeDB.zoneLog or {}) do for _, l in ipairs(e.quests) do out[#out+1] = "zonelog: " .. l end end
+    for _, e in ipairs(QuestSiftProbeDB.distLog or {}) do for _, l in ipairs(e.quests) do out[#out+1] = "distlog(" .. e.limit .. "): " .. l end end
     -- gear button on the title opens/closes Options
     local ob = NA.Tracker.optionsButton
     ob:GetScript("OnEnter")(ob); ob:GetScript("OnLeave")(ob)
@@ -171,7 +172,7 @@ function(env)
     local oc = NA.Options.frame.pageFrames
     out[#out+1] = "options: frame=" .. tostring(NA.Options.frame ~= nil) .. " pages=" .. tostring(#NA.Options.order) .. " refreshers=" .. tostring(NA.Options.frame.refreshers.quests ~= nil and NA.Options.frame.refreshers.mobs ~= nil)
     NA.QuestMobMarker.TestSound()
-    SlashCmdList["QUESTWISE"]()
+    SlashCmdList["QUESTSIFT"]()
     -- nameplate switch logic (cvars is the fake game setting)
     local function cv() return C_CVar.GetCVar("nameplateShowEnemies") end
     NA.db.markQuestMobs = true;  NA.db.showNameplates = false; NA.Nameplates.Apply(); local n1 = cv()  -- name only
@@ -255,6 +256,14 @@ function(env)
     NA.db.collapsedAll = false; UnitOnTaxi = nil; NA.Quiet.Check()
     out[#out+1] = "quiet flying (want false/sound=0, off->true): " .. qf .. ", " .. qf2
     out[#out+1] = "quiet city (want true/true, false/false, by hand stays true): " .. qc1 .. ", " .. qc2 .. ", " .. qc3
+    do -- dead / ghost: the list folds like on a flight, opens again when you come back to life
+        local realD = UnitIsDeadOrGhost; local isDead = true
+        UnitIsDeadOrGhost = function() return isDead end
+        NA.db.collapsedAll = false; NA.Quiet.Check(); NA.Tracker.Refresh(); local dl = tostring(NA.db.collapsedAll)
+        isDead = false; NA.Quiet.Check(); NA.Tracker.Refresh(); dl = dl .. "/" .. tostring(NA.db.collapsedAll)
+        UnitIsDeadOrGhost = realD; NA.Quiet.Check()
+        out[#out+1] = "list folds while dead (want true/false): " .. dl
+    end
     -- mob mark look: colour by the mob's level (player 6), progress from the tooltip or the quest lines
     local mobLv = 9
     UnitLevel = function(u) if u == "player" then return 6 end return mobLv end
@@ -412,10 +421,19 @@ function(env)
     local q2 = col(8) .. "," .. col(7) .. "," .. col(4) .. "," .. col(3) .. "," .. col(2)
     NA.db.questColorsCustom, NA.db.questColorRed, NA.db.questColorGrey = false, 5, 8
     NA.db.questColors = false; local q3 = col(12); NA.db.questColors = true
+    local q4
+    do
+        local realQDC = GetQuestDifficultyColor
+        GetQuestDifficultyColor = function() return { r = 1, g = 0.82, b = 0 } end -- Forever: -3 = yellow
+        UnitLevel = function() return 17 end
+        q4 = col(14) .. "," .. col(15) .. "," .. tostring(QC.Tier({ questID = 1, level = 14 }))
+        GetQuestDifficultyColor = realQDC; UnitLevel = function() return 6 end
+    end
     NA.Tracker.Refresh()
     out[#out+1] = "quest colours game (want red,orange,yellow,green,grey,gold): " .. q1
     out[#out+1] = "quest colours custom red+2 grey-4 (want red,yellow,yellow,green,grey): " .. q2
     out[#out+1] = "quest colours off (want gold): " .. q3
+    out[#out+1] = "quest colours classic rules, lv17 (want green,yellow,2): " .. q4
     _G.mockFocus = 0; NA.Arrow.Update()
     local a2 = tostring(NA.Arrow.frame:IsShown())
     NA.db.arrowLocked = false; NA.Arrow.ApplyLook(); local a3 = tostring(NA.Arrow.frame:IsShown())
@@ -462,6 +480,18 @@ function(env)
     NA.db.autoFocusInRange = nil; NA.db.distanceYards = 1000; NA.Tracker.Refresh()
     out[#out+1] = "auto focus within the distance (want 2/0, off->2): " .. r1 .. "/" .. r2 .. ", " .. r3
     end
+    do -- easier first: quest 2 (red, closer) and quest 1 (yellow, a bit further), both open
+        local oldMap, oUL, L = C_QuestLog.GetQuestsOnMap, UnitLevel, _G.mocklog
+        local c1, l2 = L[1].complete, L[2].level
+        L[1].complete = false; L[2].level = 16; UnitLevel = function() return 8 end
+        C_QuestLog.GetQuestsOnMap = function() return { {questID = 1, x = 0.51, y = 0.5}, {questID = 2, x = 0.505, y = 0.5}, {questID = 3, x = 0.65, y = 0.5} } end
+        fresh(); local e1 = _G.mockFocus
+        NA.db.autoFocusEasyFirst = false; fresh(); local e2 = _G.mockFocus
+        NA.db.autoFocusEasyFirst = nil; L[2].level = 8; L[1].level = 3; fresh(); local e3 = _G.mockFocus -- further grey vs yellow
+        local low = tostring(NA.QuestColor.IsLowLevel({ questID = 1, level = 3 })) .. "/" .. tostring(NA.QuestColor.IsLowLevel({ questID = 2, level = 8 }))
+        L[1].complete, L[2].level, L[1].level = c1, l2, 8; UnitLevel = oUL; C_QuestLog.GetQuestsOnMap = oldMap; fresh()
+        out[#out+1] = "auto focus easier first (want 1, off->2, grey vs yellow->1): " .. e1 .. ", " .. e2 .. ", " .. e3 .. " | low level (want true/false): " .. low
+    end
     -- quick buttons on the title: arrow / distance / zone
     local HT = NA.HeaderToggles
     local function st() local z, d
@@ -499,6 +529,16 @@ function(env)
     GetCursorPosition = function() return 500, 400 end
     local op1 = tostring(NA.ObjectProgress.ReadProgress(ft))
     NA.ObjectProgress.Refresh(ft)
+    do -- mouse left the object: the tooltip fades out, the label must go (user report)
+        local realUE = UnitExists; UnitExists = function() return false end
+        NA.ObjectProgress.Refresh(ft); local s1 = tostring(NA.ObjectProgress.IsLabelShown())
+        ft.GetAlpha = function() return 0.5 end; NA.ObjectProgress.Refresh(ft); local s2 = tostring(NA.ObjectProgress.IsLabelShown())
+        ft.GetAlpha = function() return 1 end; NA.ObjectProgress.Refresh(ft); local s3 = tostring(NA.ObjectProgress.IsLabelShown())
+        NA.ObjectProgress.SetFading(true); NA.ObjectProgress.Refresh(ft); local s4 = tostring(NA.ObjectProgress.IsLabelShown())
+        NA.ObjectProgress.SetFading(false); ft.GetAlpha = nil
+        UnitExists = realUE
+        out[#out+1] = "object label fading out (want true/false/true/false): " .. s1 .. "/" .. s2 .. "/" .. s3 .. "/" .. s4
+    end
     lines[3] = " - Smooth Boulder: 8/8"; local op2, op2d = NA.ObjectProgress.ReadProgress(ft)
     ft.GetOwner = function() return NA.Tracker.header end; NA.ObjectProgress.Refresh(ft)
     -- dungeon filter: quest 2 marked as a dungeon quest by the game
@@ -530,6 +570,20 @@ function(env)
     NA.MapInfo.Get = realGet; NA.Tracker.Refresh()
     mf = mf .. "/" .. tostring(NA.AutoFocus.ManualID())
     out[#out+1] = "manual focus with no distances (want 3/3/3): " .. mf
+    do -- dead: no auto focus; a focus the game drops comes back; yours kept after /reload (user report)
+        local realDead = UnitIsDeadOrGhost
+        _G.mockFocus = 3; NA.Tracker.Refresh(); NA.Tracker.Refresh()
+        UnitIsDeadOrGhost = function() return true end
+        _G.mockFocus = 0; NA.Tracker.Refresh(); NA.Tracker.Refresh(); local d1 = tostring(_G.mockFocus)
+        UnitIsDeadOrGhost = function() return false end
+        NA.Tracker.Refresh(); local d2 = tostring(_G.mockFocus) .. "/" .. tostring(NA.AutoFocus.ManualID())
+        env.loadFile(MOCK_ROOT .. "/Quests/AutoFocus.lua"); NA.Tracker.Refresh(); NA.Tracker.Refresh()
+        local d3 = tostring(_G.mockFocus) .. "/" .. tostring(NA.AutoFocus.ManualID())
+        env.loadFile(MOCK_ROOT .. "/Quests/AutoFocus.lua"); _G.mockFocus = 0; NA.Tracker.Refresh(); NA.Tracker.Refresh()
+        local d4 = tostring(_G.mockFocus) .. "/" .. tostring(NA.AutoFocus.ManualID())
+        UnitIsDeadOrGhost = realDead
+        out[#out+1] = "dead / reload (want 0, 3/3, 3/3, 3/3): " .. d1 .. ", " .. d2 .. ", " .. d3 .. ", " .. d4
+    end
     -- inside a dungeon: only its quests even with the skull off (user report); option off = filters as usual
     local all = NA.Tracker.allQuests
     local dz = "Ragefire Chasm"
@@ -611,9 +665,9 @@ function(env)
     for i = 1, QIW.pools.texts.used do wt[#wt+1] = QIW.pools.texts[i]:GetText() end
     for i = 1, QIW.pools.tiles.used do wt[#wt+1] = "[" .. QIW.pools.tiles[i].name:GetText() .. "]" end
     out[#out+1] = "details window: " .. table.concat(wt, " | ")
-    local sz1 = QuestWiseInfoWindow:GetWidth() .. "x" .. QuestWiseInfoWindow:GetHeight()
+    local sz1 = QuestSiftInfoWindow:GetWidth() .. "x" .. QuestSiftInfoWindow:GetHeight()
     NA.db.questInfoWidth = 9999; NA.db.questInfoHeight = 300; QIW.Refresh()
-    local sz2 = QuestWiseInfoWindow:GetWidth() .. "x" .. QuestWiseInfoWindow:GetHeight()
+    local sz2 = QuestSiftInfoWindow:GetWidth() .. "x" .. QuestSiftInfoWindow:GetHeight()
     NA.db.questInfoWidth, NA.db.questInfoHeight = nil, nil; QIW.Refresh()
     out[#out+1] = "details window size (want 360x480, 560x300): " .. sz1 .. ", " .. sz2
     out[#out+1] = "quest log selection put back (want ..,7): " .. table.concat(selected, ",")
@@ -634,6 +688,14 @@ function(env)
     NA.db.questInfoHover = true; NA.Actions.ShowTooltip(b1.titleBtn, b1.quest); local hv2 = shown
     GameTooltip.Show = oShow
     out[#out+1] = "mouse-over box (want 0 then 1): " .. hv1 .. " then " .. hv2
+    do -- the mouse-over box: what to do only, no story; points to the "i" window
+        local txt = {}
+        for _, q in ipairs(NA.Tracker.allQuests) do
+            for _, e in ipairs(NA.QuestInfo.Build(q)) do txt[#txt+1] = e.text or "" end
+        end
+        local all = table.concat(txt, " | ")
+        out[#out+1] = "mouse-over box short (want false/true): " .. tostring(all:find("near the edge", 1, true) ~= nil) .. "/" .. tostring(all:find("click i", 1, true) ~= nil)
+    end
     -- the game's quest area on the world map, painted in our colour
     local paints, drawn = {}, {}
     local pin = { SetFillTexture = function(_, p) paints[#paints+1] = p:match("[^%c]-([%w%-]+)$") end,
@@ -671,10 +733,10 @@ function(env)
         NA.Theme.Set(p.key)
         golds[#golds+1] = p.key .. "=" .. string.format("%.2f", NA.Widgets.colors.gold[1])
     end
-    NA.Theme.Set("Nope"); NA.Theme.Set("QuestWise")
+    NA.Theme.Set("Nope"); NA.Theme.Set("QuestSift")
     golds[#golds+1] = "back=" .. string.format("%.2f", NA.Widgets.colors.gold[1]) .. "/" .. NA.db.theme
     NA.QuestInfoWindow.Hide(); NA.db.listBackground = false; NA.ListLayout.ApplyLook(); NA.Options.frame:Hide()
-    out[#out+1] = "look presets (want QuestWise=1.00 GearQuest=0.90 Midnight=0.81 Forest=0.85 Game=1.00 back=1.00/QuestWise): "
+    out[#out+1] = "look presets (want QuestSift=1.00 GearQuest=0.90 Midnight=0.81 Forest=0.85 Game=1.00 back=1.00/QuestSift): "
         .. table.concat(golds, " ") .. " new errors=" .. (#NA.errors - te)
     out[#out+1] = "errors=" .. tostring(#NA.errors)
     for _, e in ipairs(NA.errors) do out[#out+1] = e end

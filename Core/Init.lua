@@ -26,6 +26,7 @@ local defaults = {
     arrowSize = 42,          -- px, 24..96
     arrowColor = "Default",  -- UI/Arrow.lua COLORS      -- arrow can't be dragged
     -- arrowPos: saved spot {x, y} after you move the arrow (nil = top centre of the screen)
+    autoFocusEasyFirst = true, -- auto focus: grey, green, yellow, orange, then red / elite quests (closest within each)
     autoFocusTurnIns = false, -- auto focus / arrow also lead to quests ready to turn in (closest of all)
     mobColors = true,        -- quest mark on mobs coloured by the mob's difficulty (Mobs/MobLook.lua)
     mobColorsCustom = false, -- ...by your own level limits (separate from the quest colours)
@@ -70,7 +71,7 @@ local defaults = {
     questColorGrey = 8,      -- levels below you: too easy (1..15)
     listBackground = false,  -- dark panel behind the list
     listFrame = true,        -- frame picture around the list background (presets GearQuest / Stone)
-    theme = "QuestWise",     -- look preset (UI/Theme.lua): QuestWise, GearQuest, Midnight, Forest, Game (shown as "Stone")
+    theme = "QuestSift",     -- look preset (UI/Theme.lua): QuestSift, GearQuest, Midnight, Forest, Game (shown as "Stone")
     listOpacity = 60,        -- % of that panel
     -- listPos: saved spot {right, top} after you move the list (nil = the default spot, see UI/ListLayout.lua)
     completeSoundEnabled = true,    -- sound when a quest gets completed
@@ -86,7 +87,7 @@ local defaults = {
     -- showNameplates: not listed on purpose - on first run it is read from the game's own setting
 }
 
--- Debug log. Does nothing on its own: the separate QuestWise_Debug add-on (game folder only, never
+-- Debug log. Does nothing on its own: the separate QuestSift_Debug add-on (game folder only, never
 -- published) replaces it when it is installed. Use: NA.Debug("topic", ...)
 function NA.Debug() end
 
@@ -141,14 +142,14 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON then
-        QuestWiseDB = QuestWiseDB or {}
+        QuestSiftDB = QuestSiftDB or {}
         for k, v in pairs(defaults) do
-            if QuestWiseDB[k] == nil then QuestWiseDB[k] = v end
+            if QuestSiftDB[k] == nil then QuestSiftDB[k] = v end
         end
-        NA.db = QuestWiseDB
+        NA.db = QuestSiftDB
     elseif event == "PLAYER_LOGIN" then
         -- the optional debug add-on gets our shared table (it is not there for players)
-        if type(QuestWiseDebug_Attach) == "function" then NA.SafeCall(QuestWiseDebug_Attach, NA) end
+        if type(QuestSiftDebug_Attach) == "function" then NA.SafeCall(QuestSiftDebug_Attach, NA) end
         for _, fn in ipairs(initCallbacks) do
             local ok, err = NA.SafeCall(fn)
             if not ok then NA.LogError(err) end

@@ -1,5 +1,5 @@
--- UI: look presets (colours + frames) for everything QuestWise draws: the quest list's background,
--- the quest details window and the options window. One setting: QuestWiseDB.theme (preset key).
+-- UI: look presets (colours + frames) for everything QuestSift draws: the quest list's background,
+-- the quest details window and the options window. One setting: QuestSiftDB.theme (preset key).
 -- Theme.Apply() copies the preset's options colours into W.colors (the same tables, changed in
 -- place, so every widget keeps pointing at them), repaints the options window and asks the list and
 -- the details window to redraw their look.
@@ -8,7 +8,7 @@ local ADDON, NA = ...
 local T = {}
 NA.Theme = T
 
-T.DEFAULT = "QuestWise"
+T.DEFAULT = "QuestSift"
 
 -- Edges drawn with the game's own border pictures (free to use: they come with the game).
 local EDGE_METAL = {          -- thin metal line, coloured gold (the look of GearQuest Forever)
@@ -24,7 +24,7 @@ local EDGE_DIALOG = {         -- the game's dialog box frame
 -- edge = nil (1 px line in opt.border) or a game border picture + its colour
 T.PRESETS = {
     {
-        key = "QuestWise", label = "QuestWise",
+        key = "QuestSift", label = "QuestSift",
         opt = {
             frameBg = { 0.055, 0.047, 0.039, 0.97 }, headerBg = { 0.095, 0.078, 0.057, 1 },
             sidebarBg = { 0.072, 0.060, 0.045, 1 }, contentBg = { 0.050, 0.043, 0.035, 1 },

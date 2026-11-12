@@ -1,0 +1,61 @@
+## Interface: 16001
+## Title: QuestSift
+## Notes: Smarter quest list: filters, nearest quest first, quest mob marks, sounds.
+## Version: 0.1.0
+## Author: Gchris
+## SavedVariables: QuestSiftDB
+## AddonCompartmentFunc: QuestSift_OnCompartmentClick
+## IconTexture: Interface\Icons\INV_Misc_Note_01
+
+Core/Init.lua
+Core/Filters.lua
+Sounds/SoundList.lua
+Core/Sound.lua
+Data/QuestSource.lua
+Data/MapInfo.lua
+Data/ZoneFilter.lua
+Data/DistanceFilter.lua
+Data/DungeonFilter.lua
+Data/DistanceSort.lua
+Data/QuestRewards.lua
+UI/Theme.lua
+UI/Header.lua
+UI/ListLayout.lua
+UI/OptionsButton.lua
+UI/QuestItemButton.lua
+UI/QuestColor.lua
+UI/QuestBlock.lua
+UI/QuestSection.lua
+Actions/Clicks.lua
+UI/QuestInfo.lua
+UI/QuestInfoWindow.lua
+Quests/AutoFocus.lua
+Quests/Quiet.lua
+Quests/FocusFirst.lua
+Quests/ClassQuests.lua
+UI/Tracker.lua
+UI/Arrow.lua
+UI/ArrowCombat.lua
+UI/ArrowCorpse.lua
+UI/QuestArea.lua
+UI/MapArea.lua
+UI/MinimapArea.lua
+UI/HeaderToggles.lua
+Compat/HideBlizzard.lua
+Quests/CompleteSound.lua
+Mobs/MobLook.lua
+Mobs/QuestMobMarker.lua
+Mobs/ObjectProgress.lua
+Compat/Nameplates.lua
+UI/Options/Widgets.lua
+UI/Options/Controls.lua
+UI/Options/Scroll.lua
+UI/Options/Window.lua
+UI/Options/PageInterface.lua
+UI/Options/PageQuests.lua
+UI/Options/PageArrow.lua
+UI/Options/PageQuestInfo.lua
+UI/Options/PageMap.lua
+UI/Options/SoundPicker.lua
+UI/Options/PageMobs.lua
+UI/Options/PageComplete.lua

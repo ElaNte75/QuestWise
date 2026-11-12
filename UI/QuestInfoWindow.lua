@@ -290,15 +290,15 @@ local function place()
     local s = f:GetScale() or 1
     if type(pos) == "table" and pos.x and pos.y then
         f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", pos.x / s, pos.y / s)
-    elseif QuestWiseTrackerFrame then
-        f:SetPoint("TOPRIGHT", QuestWiseTrackerFrame, "TOPLEFT", -40, 0)
+    elseif QuestSiftTrackerFrame then
+        f:SetPoint("TOPRIGHT", QuestSiftTrackerFrame, "TOPLEFT", -40, 0)
     else
         f:SetPoint("CENTER", UIParent, "CENTER", -200, 100)
     end
 end
 
 local function build()
-    f = CreateFrame("Frame", "QuestWiseInfoWindow", UIParent)
+    f = CreateFrame("Frame", "QuestSiftInfoWindow", UIParent)
     f:SetSize(Win.DEF_W, Win.DEF_H)
     f:SetFrameStrata("MEDIUM")
     f:SetToplevel(true)
@@ -306,7 +306,7 @@ local function build()
     f:SetMovable(true)
     f:EnableMouse(true)
     f:Hide()
-    if UISpecialFrames then table.insert(UISpecialFrames, "QuestWiseInfoWindow") end -- Esc closes it
+    if UISpecialFrames then table.insert(UISpecialFrames, "QuestSiftInfoWindow") end -- Esc closes it
 
     f.bg = f:CreateTexture(nil, "BACKGROUND")
     f.bg:SetAllPoints()

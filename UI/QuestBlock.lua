@@ -186,6 +186,8 @@ function Block:SetData(q, width)
     local label = q.level and string.format("[%d] %s", q.level, q.title) or q.title
     if NA.ClassQuests and NA.ClassQuests.IsClassQuest(q) then
         label = label .. " |c" .. NA.ClassQuests.ClassColorHex() .. "(Class quest)|r" -- Quests/ClassQuests.lua
+    elseif NA.QuestColor and NA.QuestColor.IsLowLevel(q) then
+        label = label .. " |cff9d9d9d(Low level)|r" -- grey: almost no experience
     end
     self.title:SetText(label)
     -- colour by difficulty (UI/QuestColor.lua); ready to turn in / option off = gold

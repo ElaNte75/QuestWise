@@ -109,13 +109,13 @@ function Tracker.RequestRefresh()
 end
 
 NA.OnInit(function()
-    local f = CreateFrame("Frame", "QuestWiseTrackerFrame", UIParent)
+    local f = CreateFrame("Frame", "QuestSiftTrackerFrame", UIParent)
     f:SetSize(WIDTH, 100)
     f:SetFrameStrata("MEDIUM")
     Tracker.frame = f
 
     local header = NA.Header.Create(f, {
-        width = WIDTH, height = HEADER_H, label = "QuestWise",
+        width = WIDTH, height = HEADER_H, label = "QuestSift",
         bg = "UI-QuestTracker-Primary-Objective-Header", bgW = 300, bgH = 40,
         collapse = "UI-QuestTrackerButton-Collapse-All",
         expand = "UI-QuestTrackerButton-Expand-All",

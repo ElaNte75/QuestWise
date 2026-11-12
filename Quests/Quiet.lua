@@ -6,6 +6,9 @@
 --     opens again as soon as it has something to show (class quest, your focus, quests within the
 --     distance) - even if it was folded before (user decision 2026-11-11); folding it by hand after
 --     that keeps it folded.
+--   * dead / ghost: the list folds up the same way and opens again when you come back to life (user
+--     decision 2026-11-11). Marks, sounds and automatic focus already stop while dead
+--     (Mobs/QuestMobMarker.lua, Quests/AutoFocus.lua); the arrow leads to your corpse.
 -- Mobs/QuestMobMarker.lua and UI/Arrow.lua ask Quiet.Mobs() / Quiet.Arrow().
 local ADDON, NA = ...
 
@@ -55,6 +58,7 @@ end
 
 local function flyingQuiet() return Q.FlyingOn() and Q.IsFlying() end
 local function cityQuiet() return Q.CitiesOn() and Q.InCity() end
+function Q.IsDead() return call(UnitIsDeadOrGhost, "player") and true or false end
 
 -- no quest-mob marks / sounds / "near" quests right now
 function Q.Mobs() return flyingQuiet() or cityQuiet() end
@@ -73,7 +77,7 @@ local function refreshAll()
 end
 
 function Q.Check()
-    local city = cityQuiet() or flyingQuiet()
+    local city = cityQuiet() or flyingQuiet() or Q.IsDead()
     if city ~= wasCity then
         if city then
             NA.db.collapsedAll = true
@@ -108,7 +112,8 @@ end
 NA.OnInit(function()
     local ev = CreateFrame("Frame")
     for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS",
-                         "PLAYER_CONTROL_LOST", "PLAYER_CONTROL_GAINED" }) do
+                         "PLAYER_CONTROL_LOST", "PLAYER_CONTROL_GAINED",
+                         "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST" }) do
         pcall(ev.RegisterEvent, ev, e)
     end
     ev:SetScript("OnEvent", function() NA.SafeCall(Q.Check) end)

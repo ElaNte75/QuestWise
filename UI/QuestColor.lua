@@ -1,4 +1,4 @@
--- UI: colour of a quest's title in the list by how hard it is for you (like the game's quest log).
+-- UI: colour of a quest's title in the list by how hard it is for you (classic rules, like the mob levels).
 --   red = very hard, orange = hard, yellow = your level, green = easy, grey = too easy.
 -- Settings: questColors (on/off), questColorsCustom (your own level limits instead of the game's),
 --   questColorRed / questColorOrange = levels ABOVE you, questColorGreen / questColorGrey = levels BELOW you.
@@ -79,6 +79,29 @@ end
 -- shared with the mob marks (Mobs/MobLook.lua)
 QC.GameColor, QC.CustomColor, QC.PlayerLevel = gameColor, customColor, playerLevel
 
+-- how easy a quest is for the auto focus (Quests/AutoFocus.lua), also with the colours off:
+-- 1 grey, 2 green, 3 yellow, 4 orange, 5 red / elite / group (user decision 2026-11-11). nil = unknown
+local TIER = { grey = 1, green = 2, yellow = 3, orange = 4, red = 5 }
+local function isGroupQuest(q)
+    if (tonumber(q.suggestedGroup) or 0) > 1 then return true end
+    if not (C_QuestLog and C_QuestLog.GetQuestTagInfo) then return false end
+    local ok, tag = pcall(C_QuestLog.GetQuestTagInfo, q.questID)
+    return ok and type(tag) == "table" and (tag.isElite == true or tag.tagID == 1) or false
+end
+function QC.Tier(q)
+    if not q then return nil end
+    if isGroupQuest(q) then return 5 end
+    local level, me = tonumber(q.level), playerLevel()
+    if not (level and level > 0 and me) then return nil end
+    local diff = level - me
+    local c = QC.CustomOn() and customColor(diff) or gameColor(level, diff, false)
+    for name, col in pairs(QC.COLORS) do if col == c then return TIER[name] end end
+    return nil
+end
+
+-- grey quest: almost no experience (the list says "(Low level)", UI/QuestBlock.lua)
+function QC.IsLowLevel(q) return q and not q.isComplete and QC.Tier(q) == 1 or false end
+
 -- {r, g, b} for a quest table from Data/QuestSource.lua
 function QC.For(q)
     if not (q and QC.IsOn()) or q.isComplete then return QC.GOLD end
@@ -86,5 +109,6 @@ function QC.For(q)
     if not (level and level > 0 and me) then return QC.GOLD end
     local diff = level - me
     if QC.CustomOn() then return customColor(diff) end
-    return gameColor(level, diff)
+    -- only the classic rules, like the mob marks: Forever's GetQuestDifficultyColor keeps -3 yellow
+    return gameColor(level, diff, false)
 end

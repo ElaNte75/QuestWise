@@ -47,15 +47,15 @@ NA.Options.AddPage("map", "Map", function(parent)
     st:Add(W.Note(parent, "Changes show at once. The colours are pictures the game already has (it takes no others)."), "note")
 
     st:Add(W.Section(parent, "Other areas"), "section")
-    deps[#deps + 1] = st:Add(add(W.Checkbox(parent, "Hide the other quests' areas",
-        "On the world map, only the focused quest's area is drawn, so the other quests' areas don't get in the way.",
+    deps[#deps + 1] = st:Add(add(W.Checkbox(parent, "Hide the other quests' areas (world map only)",
+        "On the big world map, only the focused quest's area is drawn (all its parts, when it has 2-3), so the other quests' areas don't get in the way. Not on the minimap: see the note below.",
         function() return MA.HideOthers() end,
         function(v) NA.db.mapHideOthers = v; MA.Apply() end)), "row")
     deps[#deps + 1] = st:Add(add(W.Checkbox(parent, "Colour the minimap areas too",
         "The inside of the quest areas on the minimap takes the same colour. Their light-blue edge stays the game's: the game doesn't let us change it.",
         function() return NA.db.mapMinimap ~= false end,
         function(v) NA.db.mapMinimap = v; if NA.MinimapArea then NA.MinimapArea.Update(true) end end)), "row")
-    st:Add(W.Note(parent, "The minimap can't hide only the other quests' areas: the game doesn't tell it which one is focused."), "note")
+    st:Add(W.Note(parent, "Minimap: it always shows the areas of ALL your tracked quests, also with a quest focused. The game doesn't let an add-on hide some of them there, or tell which one is focused."), "note")
 
     return function()
         for _, r in ipairs(refreshers) do r() end

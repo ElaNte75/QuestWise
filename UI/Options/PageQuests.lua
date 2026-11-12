@@ -32,12 +32,13 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
     -- Zone and Distance exclude each other (one or the other, or neither)
     local zone = filterById("zone")
     local dist = filterById("distance")
-    local zoneCheck, distCheck, distRow, focusCheck, rangeCheck
+    local zoneCheck, distCheck, distRow, focusCheck, rangeCheck, easyCheck
     local function refreshScope()
         if zoneCheck then zoneCheck.Refresh() end
         if distCheck then distCheck.Refresh() end
         local autoOn = NA.db.autoFocusNearest ~= false
         if rangeCheck then W.SetActive(rangeCheck, autoOn) end
+        if easyCheck then W.SetActive(easyCheck, autoOn) end
         if distRow then W.SetActive(distRow, NA.Filters.IsEnabled(dist) or (autoOn and NA.db.autoFocusInRange ~= false)) end
     end
 
@@ -76,6 +77,10 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         "The automatic focus picks only quests within the Distance above (also when the distance filter is off). Nothing that close = no automatic focus until a quest comes within it. Unticked: the closest quest of the zone, however far.",
         function() return NA.db.autoFocusInRange ~= false end,
         function(v) NA.db.autoFocusInRange = v; refreshScope(); changed() end)), "sub")
+    easyCheck = st:Add(add(W.Checkbox(parent, "Easier quests first",
+        "The automatic focus picks grey quests first, then green, yellow, orange, and red, elite or group quests last - the closest of each. Unticked: simply the closest quest.",
+        function() return NA.db.autoFocusEasyFirst ~= false end,
+        function(v) NA.db.autoFocusEasyFirst = v; changed() end)), "sub")
 
     -- quest colours by difficulty (UI/QuestColor.lua)
     st:Add(W.Section(parent, "Difficulty colours"), "section")
@@ -91,7 +96,7 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         if NA.Tracker then NA.Tracker.RequestRefresh() end
     end
     st:Add(add(W.Checkbox(parent, "Colour quests by difficulty",
-        "Quest titles get the game's colours: red very hard, orange hard, yellow your level, green easy, grey too easy. Quests ready to turn in stay gold.",
+        "Quest titles get the classic difficulty colours (the same as the mob levels): red very hard, orange hard, yellow your level, green easy, grey too easy. Quests ready to turn in stay gold.",
         function() return QC.IsOn() end,
         function(v) NA.db.questColors = v; colorsChanged() end)), "row")
     customCheck = st:Add(add(W.Checkbox(parent, "Use my own levels",

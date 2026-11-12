@@ -265,7 +265,7 @@ function A.PointTo(v, d, face, name)
 end
 
 NA.OnInit(function()
-    local f = CreateFrame("Frame", "QuestWiseArrowFrame", UIParent)
+    local f = CreateFrame("Frame", "QuestSiftArrowFrame", UIParent)
     f:SetFrameStrata("MEDIUM")
     f:SetMovable(true)
     f:SetClampedToScreen(true)

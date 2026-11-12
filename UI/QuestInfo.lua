@@ -3,7 +3,8 @@
 -- when it is done where to go. Only what the game gives us (no database of places or mobs).
 -- Info.Build(quest) makes the list of lines once; two places show it:
 --   - the small box when the mouse is over a quest in our list (game tooltip, Info.Show) - option
---     questInfoHover
+--     questInfoHover: ONLY what to do, in short (no story, no hand-in text) + "more: click i"
+--     (user decision 2026-11-11: don't say the same things twice)
 --   - our own window (UI/QuestInfoWindow.lua), opened with the "i" button next to each quest
 local ADDON, NA = ...
 
@@ -113,7 +114,7 @@ function Info.Build(quest, opts)
         add("gap")
         add("head", "Done", GREEN)
         add("line", ICONS.turnin .. "Go back and hand it in", GREEN, { wrap = true })
-        local text = completionText(logIndex)
+        local text = opts.window and completionText(logIndex)
         if text then add("line", text, WHITE, { wrap = true }) end
     else
         add("gap")
@@ -144,8 +145,8 @@ function Info.Build(quest, opts)
             local pic = quest.item.icon and ("|T" .. quest.item.icon .. ":0:0:0:0|t ") or ""
             add("line", pic .. "Use " .. quest.item.link .. " (button next to the quest)", BLUE, { wrap = true })
         end
-        -- the game's own short text, as a reminder of the story
-        local notes = questNotes(logIndex, not opts.window and MAX_NOTES or nil)
+        -- the game's own text, the story (window only)
+        local notes = opts.window and questNotes(logIndex)
         if notes then
             add("gap")
             if opts.window then add("head", "The quest", GOLD) end
@@ -155,9 +156,10 @@ function Info.Build(quest, opts)
 
     if not opts.window then
         add("gap")
-        local hint = "Click: quest log   Shift-click: stop tracking   Circle: focus"
-        if NA.QuestInfoWindow and NA.QuestInfoWindow.ButtonOn() then hint = hint .. "   i: details" end
-        add("hint", hint, { 0.5, 0.5, 0.5 })
+        if NA.QuestInfoWindow and NA.QuestInfoWindow.ButtonOn() then
+            add("hint", "More (the quest, rewards): click i", GOLD)
+        end
+        add("hint", "Click: quest log   Shift-click: stop tracking   Circle: focus", { 0.5, 0.5, 0.5 })
     end
     return out
 end

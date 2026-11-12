@@ -3,7 +3,12 @@
 -- Distance), user decision 2026-11-11 (autoFocusInRange, on; off = the closest whatever the distance).
 -- Nothing within the distance = our focus is cleared until a quest comes within it.
 -- Quests of other zones have no distance here and never count.
--- Flying with a flight master / in a major city (Quests/Quiet.lua): it does nothing.
+-- Flying with a flight master / in a major city (Quests/Quiet.lua), dead or a ghost: it does nothing
+--   (user report 2026-11-11: it picked a quest while dead). A focus the game drops while you are dead
+--   comes back when you are alive.
+--   * your own focus is kept after /reload too (NA.db.autoFocusManual / autoFocusManualDone)
+--   * easier quests first (autoFocusEasyFirst, on): grey, green, yellow, orange, then red / elite /
+--     group (UI/QuestColor.lua QC.Tier), the closest within each - user decision 2026-11-11
 --   * only quests still to be done count; if all are ready to turn in, the closest turn-in
 --     (option autoFocusTurnIns: open and ready quests count the same - simply the closest)
 --   * a quest you focus yourself (ANY quest, also one ready to turn in) is kept until it is
@@ -23,6 +28,7 @@ local manualID     -- quest the player focused by hand (0 = player cleared the f
 local manualDone   -- was that quest already ready to turn in when the player chose it?
 local clearedNear  -- closest quest at the moment the player cleared the focus
 local lastSeen     -- the focus as it was at the previous check (any change we didn't make = the player's)
+local wasDead      -- the previous check was skipped because you were dead
 
 local function focusedID()
     if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
@@ -63,10 +69,17 @@ local function distanceOf(q, ctx)
     return ctx.dist[q.questID]
 end
 
--- closest tracked quest of this zone: open quests first, ready ones only if no open quest is known
+function AF.EasyFirst() return NA.db.autoFocusEasyFirst ~= false end
+local UNKNOWN_TIER = 3 -- level unknown: counted as your level (yellow)
+local function tierOf(q)
+    if q.isComplete or not AF.EasyFirst() then return 0 end
+    return NA.QuestColor and NA.QuestColor.Tier(q) or UNKNOWN_TIER
+end
+
+-- closest tracked quest of this zone: open quests first (easier first), ready ones only if no open quest is known
 local function nearest(visible, ctx)
     local mixed = NA.db.autoFocusTurnIns == true
-    local best, bestD, bestDone, bestDoneD
+    local best, bestD, bestT, bestDone, bestDoneD
     local DF = NA.DungeonFilter
     for _, q in ipairs(visible) do
         local d = distanceOf(q, ctx)
@@ -75,8 +88,9 @@ local function nearest(visible, ctx)
         if d then
             if q.isComplete then
                 if not bestDoneD or d < bestDoneD then bestDone, bestDoneD = q, d end
-            elseif not bestD or d < bestD then
-                best, bestD = q, d
+            else
+                local t = tierOf(q)
+                if not bestD or t < bestT or (t == bestT and d < bestD) then best, bestD, bestT = q, d, t end
             end
         end
     end
@@ -85,13 +99,40 @@ local function nearest(visible, ctx)
     return bestDone, bestDoneD
 end
 
-function AF.Update(visible) -- visible = ALL tracked quests (not only those the list shows)
+local function dead()
+    local M = NA.QuestMobMarker
+    return M and M.PlayerDead and M.PlayerDead() or false
+end
+
+local function setFocusQuiet(id) -- puts a focus back without making it "ours"
+    if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then pcall(C_SuperTrack.SetSuperTrackedQuestID, id) end
+end
+
+local function update(visible)
     if not AF.IsOn() then reset(); return end
+    if dead() then wasDead = true; return end -- dead / ghost: nothing changes, not even "you chose"
+
+    local cur = focusedID()
+    if lastSeen == nil then
+        -- first check after login / reload: your own focus from before is still yours
+        local saved = tonumber(NA.db.autoFocusManual)
+        if saved and saved ~= 0 and (cur == saved or cur == 0) then
+            local tracked = false
+            for _, q in ipairs(visible) do if q.questID == saved then tracked = true end end
+            if tracked then
+                if cur == 0 then setFocusQuiet(saved); cur = saved end
+                manualID, lastSet, manualDone = saved, saved, NA.db.autoFocusManualDone
+            end
+        end
+    elseif wasDead and cur == 0 and lastSeen ~= 0 then
+        -- the game dropped the focus while you were dead: not your choice, it comes back
+        setFocusQuiet(lastSeen); cur = lastSeen
+    end
+    wasDead = false
 
     -- the focus changed and it wasn't us: the player chose (or cleared) it.
     -- Checked BEFORE anything else (also when distances are unknown), and also before we ever set a
     -- focus ourselves (before, a focus of yours was missed then - user report: not on top of the list)
-    local cur = focusedID()
     if lastSeen ~= nil and cur ~= lastSeen and cur ~= lastSet then
         manualID = cur
         lastSet = cur
@@ -138,11 +179,18 @@ function AF.Update(visible) -- visible = ALL tracked quests (not only those the 
 
     -- small hysteresis so two quests at about the same distance don't swap back and forth
     local curQ = byID[cur]
-    if curQ and lastSet == cur and (NA.db.autoFocusTurnIns == true or curQ.isComplete == near.isComplete) then
+    if curQ and lastSet == cur and (NA.db.autoFocusTurnIns == true or curQ.isComplete == near.isComplete)
+        and tierOf(curQ) == tierOf(near) then
         local curD = distanceOf(curQ, ctx)
         local inRange = curD and not (AF.InRangeOnly() and curD > rangeYards())
         if inRange and curD - nearD < SWITCH_MARGIN then return end
     end
     setFocus(near.questID)
     lastSeen = near.questID
+end
+
+function AF.Update(visible) -- visible = ALL tracked quests (not only those the list shows)
+    update(visible)
+    NA.db.autoFocusManual = AF.ManualID()
+    NA.db.autoFocusManualDone = AF.ManualID() and manualDone or nil
 end

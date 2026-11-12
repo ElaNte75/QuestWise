@@ -1,5 +1,5 @@
 -- UI: where the quest list sits and how it looks: width, maximum height, background, moving it.
--- The settings live in QuestWiseDB (listWidth, listMaxHeight, listBackground, listOpacity,
+-- The settings live in QuestSiftDB (listWidth, listMaxHeight, listBackground, listOpacity,
 -- listLocked, listPos). The tracker asks this module for the numbers; the Options page changes them.
 local ADDON, NA = ...
 
